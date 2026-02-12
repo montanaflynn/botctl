@@ -1,0 +1,6 @@
+# Build artifacts
+botctl
+botctl-go
+botctl-go.exe
+*.exe
+dist/
