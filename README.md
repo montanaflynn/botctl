@@ -4,9 +4,17 @@ Process manager for autonomous bots. Run persistent agents from a single CLI (`b
 
 ## Install
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/montanaflynn/botctl/main/install.sh | sh
 ```
-go install github.com/montanaflynn/botctl/v1
+
+Or with Go:
+
 ```
+go install github.com/montanaflynn/botctl@latest
+```
+
+Pre-built binaries for macOS, Linux, and Windows are on the [releases](https://github.com/montanaflynn/botctl/releases) page.
 
 ## Glossary
 
@@ -50,7 +58,7 @@ botctl stop my-bot
 
 | Command | Description |
 |---------|-------------|
-| `botctl` | Open the TUI dashboard |
+| `botctl` | Open the TUI dashboard (`--web-ui` for web dashboard, `--port` to set port) |
 | `botctl create [name]` | Create a new bot via Claude (`-d` description, `-i` interval, `-m` max turns) |
 | `botctl start [name]` | Start a bot (`-d` detach, `-m` message, `--once` single run) |
 | `botctl stop [name]` | Stop a bot (no args = stop all) |
@@ -58,22 +66,26 @@ botctl stop my-bot
 | `botctl status` | Detailed status of all bots |
 | `botctl logs [name]` | View logs (`-n` lines, `-f` follow) |
 | `botctl delete <name>` | Delete a bot and its data (`-y` skip confirmation) |
+| `botctl update` | Self-update to the latest release |
+| `botctl --version` | Show version and commit hash |
+| `botctl --help` | Show help for any command |
 
 ## TUI keybindings
 
 | Key | Action |
 |-----|--------|
 | `s` | Start/stop selected bot |
-| `r` | Restart selected bot |
-| `u` | Resume (editable turn count) |
-| `m` | Send message to bot |
-| `c` | Create new bot |
+| `r` | Resume (editable turn count) |
+| `m` or `enter` | Send message to bot |
+| `n` | Create new bot |
+| `c` | Clear bot logs and runs |
+| `d` | Delete bot (with confirmation) |
 | `o` | Open bot directory |
-| `f` | Filter bots by name |
+| `f` or `tab` | Focus filter bar |
 | `up`/`down` or `j`/`k` | Navigate bot list |
-| `tab` | Switch focus between table and logs |
-| `enter` | Sort column (when on header) |
 | `q` | Quit |
+
+> **Tip:** To select text in the TUI, hold **Option** (iTerm2/macOS Terminal) or **Shift** (most other terminals) while clicking and dragging. This is standard for all terminal apps that capture mouse input.
 
 ## BOT.md format
 
@@ -182,6 +194,26 @@ Claude's working directory is set to the workspace. All file operations happen t
       logs/
         20260208-142305.log      # Per-run log files
         boot.log                 # Harness startup log
+```
+
+## Updates
+
+`botctl` checks for new releases in the background. When a newer version is available, you'll see a notice after any command:
+
+```
+Update available: 0.1.0 → 0.2.0
+Run `botctl update` to update
+```
+
+Run `botctl update` to download and replace the binary in-place.
+
+## Web dashboard
+
+Start the web UI instead of the TUI:
+
+```bash
+botctl --web-ui              # default port 4444
+botctl --web-ui --port 8080  # custom port
 ```
 
 ## Database

@@ -1,3 +1,8 @@
+project_name: botctl
+
+checksum:
+  name_template: "checksums.txt"
+
 builds:
   - main: .
     binary: botctl
@@ -17,6 +22,34 @@ archives:
 
 changelog:
   sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: "^.*feat.*:+.*$"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^.*fix.*:+.*$"
+      order: 1
+    - title: Performance
+      regexp: "^.*perf.*:+.*$"
+      order: 2
+    - title: Refactoring
+      regexp: "^.*refactor.*:+.*$"
+      order: 3
+    - title: Documentation
+      regexp: "^.*docs.*:+.*$"
+      order: 4
+    - title: Testing
+      regexp: "^.*test.*:+.*$"
+      order: 5
+    - title: CI
+      regexp: "^.*ci.*:+.*$"
+      order: 6
+    - title: Chores
+      regexp: "^.*chore.*:+.*$"
+      order: 7
+    - title: Others
+      order: 999
 
 release:
   github:
