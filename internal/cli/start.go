@@ -20,7 +20,7 @@ func init() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// No args -> just open TUI
 			if len(args) == 0 {
-				tui.Version = Version
+				tui.Version = rootCmd.Version
 				return tui.Run()
 			}
 
@@ -93,14 +93,14 @@ func init() {
 							fmt.Printf("  %s restarted with message (pid %d)\n", name, pid)
 							return nil
 						}
-						tui.Version = Version
+						tui.Version = rootCmd.Version
 						return tui.Run()
 					}
 					if detach {
 						fmt.Printf("  %s already running\n", name)
 						return nil
 					}
-					tui.Version = Version
+					tui.Version = rootCmd.Version
 					return tui.Run()
 				}
 
@@ -120,7 +120,7 @@ func init() {
 					return nil
 				}
 
-				tui.Version = Version
+				tui.Version = rootCmd.Version
 				return tui.Run()
 			})
 		},
