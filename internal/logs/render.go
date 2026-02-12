@@ -185,6 +185,7 @@ func RenderEntries(entries []db.LogEntry) string {
 	for _, e := range entries {
 		lines := RenderEntry(e)
 		all = append(all, lines...)
+		all = append(all, "") // entry separator
 	}
 	return strings.Join(all, "\n") + "\n"
 }

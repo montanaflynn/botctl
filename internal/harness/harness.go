@@ -100,7 +100,8 @@ func splitFormatted(s string) (heading, body string) {
 // runTask executes a single Claude query for the bot.
 // If feedback is non-empty, it is appended to the prompt.
 // If resumeSession is non-empty, the task resumes that session instead of starting fresh.
-func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64, database *db.DB, botID string, feedback string, resumeSession string) *claude.ResultMessage {
+// If interruptCh is non-nil, the query can be interrupted between turns.
+func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64, database *db.DB, botID string, feedback string, resumeSession string, interruptCh <-chan struct{}) *claude.ResultMessage {
 	var skillsLine string
 	if cfg.SkillsDir != "" {
 		skillsPath := filepath.Join(botDir, cfg.SkillsDir)
@@ -126,6 +127,7 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 		Cwd:            workspace,
 		PermissionMode: "bypassPermissions",
 		MaxBufferSize:  10 * 1024 * 1024,
+		InterruptCh:    interruptCh,
 	}
 	if cfg.MaxTurns > 0 {
 		opts.MaxTurns = cfg.MaxTurns
@@ -195,7 +197,7 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 		opts.SessionID = resumeSession
 		prompt = fmt.Sprintf("## Max turns reached (%d/%d)\n## Resumed by operator", cfg.MaxTurns, cfg.MaxTurns)
 		if feedback != "" {
-			prompt = feedback
+			prompt = formatOperatorMessage(feedback)
 		}
 		fmt.Printf("## Resuming session\n%s\n", resumeSession)
 		if database != nil && botID != "" {
@@ -204,7 +206,7 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 	} else {
 		prompt = cfg.Body
 		if feedback != "" {
-			prompt += "\n\n---\nOperator message (prioritize this over routine tasks):\n" + feedback
+			prompt += "\n\n" + formatOperatorMessage(feedback)
 		}
 	}
 
@@ -232,6 +234,14 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 	}
 
 	return result
+}
+
+// formatOperatorMessage wraps feedback in a prominent heading block.
+func formatOperatorMessage(feedback string) string {
+	return "## OPERATOR MESSAGE — READ AND RESPOND IMMEDIATELY\n\n" +
+		"The following message is from the operator who manages you. " +
+		"Prioritize this over any routine tasks:\n\n" +
+		feedback
 }
 
 // Run is the main entry point for the harness — called by `botctl harness <bot_dir>`.
@@ -280,7 +290,12 @@ func Run(botDir string, once bool, message string) error {
 	fmt.Printf("%s started at %s\n", name, time.Now().Format(time.RFC3339))
 	fmt.Printf("  workspace: %s\n", workspace)
 
-	var lastSessionID string // set when a run hits max turns
+	// Persistent SIGUSR1 handler — shared across sleep and run phases
+	wakeCh := make(chan os.Signal, 1)
+	signal.Notify(wakeCh, syscall.SIGUSR1)
+	defer signal.Stop(wakeCh)
+
+	var lastSessionID string // set when a run hits max turns or is interrupted
 
 	for {
 		// Reload config each iteration so BOT.md edits take effect without restart
@@ -300,44 +315,71 @@ func Run(botDir string, once bool, message string) error {
 			fmt.Printf("warning: failed to begin run: %v\n", err)
 		}
 
-		// Use CLI --message on first run, then check DB queue
+		// Use CLI --message on first run, then drain DB queue
 		feedback := message
 		message = ""
 		if feedback == "" {
-			feedback = database.DequeueMessage(id)
+			feedback = database.DequeueAllMessages(id)
 		}
 		if feedback != "" {
 			fmt.Printf("## Feedback\n%s\n", feedback)
 			database.InsertLogEntry(id, runID, "feedback", "Feedback", feedback)
 		}
 
-		// Determine if this is a resume (supports "resume" and "resume:N")
+		// Check for resume command with optional turn count (supports "resume" and "resume:N")
 		resumeSession := ""
 		trimmedFeedback := strings.TrimSpace(feedback)
 		if strings.HasPrefix(strings.ToLower(trimmedFeedback), "resume") {
-			// Extract optional turn count override (always applied)
+			// Extract optional turn count override
 			if parts := strings.SplitN(trimmedFeedback, ":", 2); len(parts) == 2 {
 				if n, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil && n > 0 {
 					cfg.MaxTurns = n
 				}
 			}
-			// Resume session if we have one from a previous max-turns hit
-			if lastSessionID != "" {
-				resumeSession = lastSessionID
-			}
-			feedback = "" // "resume" is a command, not a user message
+			// Resume is just a message — replace with a human-readable prompt
+			feedback = "Resumed by operator"
+		}
+
+		// Auto-resume: if we have a saved session and feedback, resume with it
+		if lastSessionID != "" && feedback != "" {
+			resumeSession = lastSessionID
 		}
 
 		runHeader := fmt.Sprintf("Run #%d", runNumber)
 		fmt.Printf("\n## %s\n", runHeader)
 		database.InsertLogEntry(id, runID, "run_header", runHeader, "")
 
-		result := runTask(absDir, cfg, workspace, runID, database, id, feedback, resumeSession)
+		// Set up per-run interrupt channel: forwards SIGUSR1 to SDK
+		interruptCh := make(chan struct{})
+		stopForward := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-wakeCh:
+					// Only interrupt if there are pending messages
+					if database.HasPendingMessages(id) {
+						select {
+						case interruptCh <- struct{}{}:
+						default:
+						}
+						return
+					}
+					// Signal received but no messages — ignore (spurious wake)
+				case <-stopForward:
+					return
+				}
+			}
+		}()
+
+		result := runTask(absDir, cfg, workspace, runID, database, id, feedback, resumeSession, interruptCh)
+
+		close(stopForward)
 
 		var sessionID string
 		var durationMS int64
 		var costUSD float64
 		var turns int
+		wasInterrupted := result != nil && result.Interrupted
 		if result != nil {
 			sessionID = result.SessionID
 			durationMS = int64(result.DurationMS)
@@ -352,22 +394,24 @@ func Run(botDir string, once bool, message string) error {
 			}
 		}
 
-		// Detect max turns reached — store session for resume
-		if cfg.MaxTurns > 0 && (result == nil || result.NumTurns >= cfg.MaxTurns) {
+		// Store session ID for resume on interrupt or max turns
+		if wasInterrupted {
 			if sessionID != "" {
 				lastSessionID = sessionID
 			}
-			// Keep existing lastSessionID if sessionID is empty (e.g. result was nil)
+			interruptMsg := "Interrupted by operator message"
+			fmt.Printf("## %s\n", interruptMsg)
+			database.InsertLogEntry(id, runID, "interrupted", interruptMsg, "")
+		} else if cfg.MaxTurns > 0 && (result == nil || result.NumTurns >= cfg.MaxTurns) {
+			if sessionID != "" {
+				lastSessionID = sessionID
+			}
 			maxMsg := fmt.Sprintf("Max turns reached (%d/%d)", turns, cfg.MaxTurns)
-			fmt.Printf("## %s\nPress u to resume\n", maxMsg)
-			database.InsertLogEntry(id, runID, "max_turns", maxMsg, "Press u to resume")
+			fmt.Printf("## %s\nPress r to resume\n", maxMsg)
+			database.InsertLogEntry(id, runID, "max_turns", maxMsg, "Press r to resume")
 		} else {
 			lastSessionID = ""
 		}
-
-		sleepMsg := fmt.Sprintf("sleeping %ds...", cfg.IntervalSeconds)
-		fmt.Println(sleepMsg)
-		database.InsertLogEntry(id, runID, "sleep", "", sleepMsg)
 
 		// Write log file from DB entries after run
 		if runID > 0 {
@@ -390,21 +434,26 @@ func Run(botDir string, once bool, message string) error {
 			break
 		}
 
-		sleepUntilWake(cfg.IntervalSeconds)
+		// Skip sleep if messages are pending (e.g. after interrupt)
+		if database.HasPendingMessages(id) {
+			continue
+		}
+
+		sleepMsg := fmt.Sprintf("sleeping %ds...", cfg.IntervalSeconds)
+		fmt.Println(sleepMsg)
+		database.InsertLogEntry(id, 0, "sleep", "", sleepMsg)
+
+		sleepUntilWake(cfg.IntervalSeconds, wakeCh)
 	}
 
 	return nil
 }
 
 // sleepUntilWake sleeps for the given duration but can be woken early
-// by a SIGUSR1 signal (sent by the TUI when a message is queued).
-func sleepUntilWake(seconds int) {
-	wake := make(chan os.Signal, 1)
-	signal.Notify(wake, syscall.SIGUSR1)
-	defer signal.Stop(wake)
-
+// by a signal on the provided channel (SIGUSR1 sent by TUI when a message is queued).
+func sleepUntilWake(seconds int, wakeCh <-chan os.Signal) {
 	select {
-	case <-wake:
+	case <-wakeCh:
 	case <-time.After(time.Duration(seconds) * time.Second):
 	}
 }

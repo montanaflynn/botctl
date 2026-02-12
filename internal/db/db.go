@@ -257,6 +257,45 @@ func (d *DB) DequeueMessage(botID string) string {
 	return message
 }
 
+// DequeueAllMessages retrieves and removes ALL pending messages for a bot.
+// Returns them joined with newlines. Returns empty string if none pending.
+func (d *DB) DequeueAllMessages(botID string) string {
+	rows, err := d.conn.Query(
+		`SELECT id, message FROM pending_messages WHERE bot_id = ? ORDER BY id`, botID,
+	)
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+
+	var ids []int64
+	var msgs []string
+	for rows.Next() {
+		var id int64
+		var msg string
+		if err := rows.Scan(&id, &msg); err == nil {
+			ids = append(ids, id)
+			msgs = append(msgs, msg)
+		}
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	for _, id := range ids {
+		d.conn.Exec(`DELETE FROM pending_messages WHERE id = ?`, id)
+	}
+	return strings.Join(msgs, "\n")
+}
+
+// HasPendingMessages returns true if there are any pending messages for a bot.
+func (d *DB) HasPendingMessages(botID string) bool {
+	var count int
+	err := d.conn.QueryRow(
+		`SELECT COUNT(*) FROM pending_messages WHERE bot_id = ?`, botID,
+	).Scan(&count)
+	return err == nil && count > 0
+}
+
 // InsertLogEntry stores a single structured log entry and returns its row ID.
 // Use runID=0 for entries not associated with a specific run (e.g. TUI events).
 func (d *DB) InsertLogEntry(botID string, runID int64, kind, heading, body string) (int64, error) {
