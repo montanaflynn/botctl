@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/montanaflynn/botctl-go/internal/discovery"
+	"github.com/montanaflynn/botctl-go/internal/db"
 	"github.com/montanaflynn/botctl-go/internal/paths"
+	"github.com/montanaflynn/botctl-go/internal/service"
 	"github.com/montanaflynn/botctl-go/internal/tui"
+	"github.com/montanaflynn/botctl-go/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +23,10 @@ var rootCmd = &cobra.Command{
 			fmt.Println("botctl", Version)
 			return nil
 		}
+		if webUI, _ := cmd.Flags().GetBool("web-ui"); webUI {
+			port, _ := cmd.Flags().GetInt("port")
+			return web.Serve(port)
+		}
 		tui.Version = Version
 		return tui.Run()
 	},
@@ -28,16 +34,18 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().Bool("version", false, "Print version")
+	rootCmd.Flags().Bool("web-ui", false, "Start web dashboard instead of TUI")
+	rootCmd.Flags().Int("port", 4444, "Port for the web dashboard")
 }
 
-func findBot(name string) *discovery.Bot {
-	bots, _ := discovery.DiscoverBots()
-	for _, b := range bots {
-		if b.Name == name {
-			return &b
-		}
+// withService opens the database, creates a service, and passes it to fn.
+func withService(fn func(*service.Service) error) error {
+	database, err := db.Open()
+	if err != nil {
+		return fmt.Errorf("open db: %w", err)
 	}
-	return nil
+	defer database.Close()
+	return fn(service.New(database))
 }
 
 // Execute runs the root command.

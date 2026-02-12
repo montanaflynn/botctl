@@ -3,9 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/discovery"
-	"github.com/montanaflynn/botctl-go/internal/process"
+	"github.com/montanaflynn/botctl-go/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -15,32 +13,37 @@ func init() {
 		Short: "Stop bot(s)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			database, err := db.Open()
-			if err != nil {
-				return fmt.Errorf("open db: %w", err)
-			}
-			defer database.Close()
-
-			var targets []discovery.Bot
-
-			if len(args) > 0 {
-				bot := findBot(args[0])
-				if bot == nil {
-					return fmt.Errorf("bot not found: %s", args[0])
+			return withService(func(svc *service.Service) error {
+				if len(args) > 0 {
+					err := svc.StopBot(args[0])
+					if err == service.ErrBotNotFound {
+						return fmt.Errorf("bot not found: %s", args[0])
+					}
+					if err == service.ErrNotRunning {
+						fmt.Printf("  %s not running\n", args[0])
+						return nil
+					}
+					if err != nil {
+						return err
+					}
+					fmt.Printf("  %s stopped\n", args[0])
+					return nil
 				}
-				targets = []discovery.Bot{*bot}
-			} else {
-				targets, _ = discovery.DiscoverBots()
-			}
 
-			for _, bot := range targets {
-				if process.StopBot(bot.ID, database) {
-					fmt.Printf("  %s stopped\n", bot.Name)
-				} else {
-					fmt.Printf("  %s not running\n", bot.Name)
+				// Stop all bots
+				bots, _ := svc.ListBots("")
+				for _, bot := range bots {
+					err := svc.StopBot(bot.Name)
+					if err == service.ErrNotRunning {
+						fmt.Printf("  %s not running\n", bot.Name)
+					} else if err != nil {
+						fmt.Printf("  %s error: %v\n", bot.Name, err)
+					} else {
+						fmt.Printf("  %s stopped\n", bot.Name)
+					}
 				}
-			}
-			return nil
+				return nil
+			})
 		},
 	})
 }

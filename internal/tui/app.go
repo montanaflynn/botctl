@@ -18,8 +18,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/montanaflynn/botctl-go/internal/config"
 	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/discovery"
-	"github.com/montanaflynn/botctl-go/internal/process"
+	"github.com/montanaflynn/botctl-go/internal/service"
 )
 
 // Version is set by the CLI package before launching.
@@ -46,7 +45,7 @@ type model struct {
 	cursor        int                  // arrow navigation position
 	activeLogs    []string             // currently viewed bot (0 or 1)
 	logPanels     map[string]*logPanel // log state per bot
-	botCache      map[string]*discovery.Bot
+	botCache      map[string]*service.BotInfo
 	botNames      []string // ordered bot names from last refresh
 	notify        string
 	notifyErr     bool
@@ -55,7 +54,7 @@ type model struct {
 	logTop        int
 	autoShown     bool
 	newLogLines   int // unread log lines when scrolled up
-	database      *db.DB
+	svc           *service.Service
 	allRows       []table.Row // all rows (pre-pagination)
 	tableOffset   int         // first visible row index for pagination
 	sortCol       int         // which table column (0-5) is sorted
@@ -98,7 +97,7 @@ func colToSlot(col int) int {
 	return col + 1
 }
 
-func newModel(database *db.DB) model {
+func newModel(svc *service.Service) model {
 	cols := []table.Column{
 		{Title: "NAME", Width: 20},
 		{Title: "STATUS", Width: 10},
@@ -146,8 +145,8 @@ func newModel(database *db.DB) model {
 		tellInput:     tell,
 		filterFocused: false,
 		logPanels:     make(map[string]*logPanel),
-		botCache:      make(map[string]*discovery.Bot),
-		database:      database,
+		botCache:      make(map[string]*service.BotInfo),
+		svc:           svc,
 		sortCol:       5, // LAST RUN column
 		sortOrder:     sortDesc,
 	}
@@ -629,29 +628,21 @@ func (m *model) initLogView() {
 }
 
 func (m *model) refreshBots() {
-	bots, _ := discovery.DiscoverBots()
-	m.botCache = make(map[string]*discovery.Bot, len(bots))
+	bots, _ := m.svc.ListBots(m.filter.Value())
+	m.botCache = make(map[string]*service.BotInfo, len(bots))
 	m.botNames = make([]string, 0, len(bots))
-
-	filterText := strings.ToLower(m.filter.Value())
 
 	var rows []table.Row
 	lastRunRaw := make(map[string]string) // botName → raw ISO timestamp for sorting
-	for _, bot := range bots {
-		if filterText != "" && !strings.Contains(strings.ToLower(bot.Name), filterText) {
-			continue
-		}
-
-		b := bot
-		m.botCache[bot.Name] = &b
+	for i := range bots {
+		bot := &bots[i]
+		m.botCache[bot.Name] = bot
 		m.botNames = append(m.botNames, bot.Name)
 
-		running, pid := process.IsRunning(bot.ID, m.database)
-		status := "stopped"
+		status := bot.Status
 		pidStr := "-"
-		if running {
-			status = "running"
-			pidStr = fmt.Sprintf("%d", pid)
+		if bot.PID > 0 {
+			pidStr = fmt.Sprintf("%d", bot.PID)
 		}
 
 		// Optimistic UI: override status for in-flight actions
@@ -666,13 +657,12 @@ func (m *model) refreshBots() {
 			}
 		}
 
-		stats := m.database.GetBotStats(bot.ID)
-		runs := fmt.Sprintf("%d", stats.Runs)
-		cost := fmt.Sprintf("$%.2f", stats.TotalCost)
+		runs := fmt.Sprintf("%d", bot.Stats.Runs)
+		cost := fmt.Sprintf("$%.2f", bot.Stats.TotalCost)
 		lastRun := "-"
-		if stats.LastRun != "" {
-			lastRun = timeAgo(stats.LastRun)
-			lastRunRaw[bot.Name] = stats.LastRun
+		if bot.Stats.LastRun != "" {
+			lastRun = timeAgo(bot.Stats.LastRun)
+			lastRunRaw[bot.Name] = bot.Stats.LastRun
 		}
 
 		rows = append(rows, table.Row{bot.Name, status, pidStr, runs, cost, lastRun})
@@ -875,52 +865,74 @@ func (m model) styledTableView() string {
 	return strings.Join(lines, "\n")
 }
 
+// isTagLine returns true if the line looks like an XML-style tag.
+func isTagLine(s string) bool {
+	return strings.HasPrefix(s, "<") && strings.Contains(s, ">")
+}
+
 // styleLogs applies per-line coloring to log content.
-// Tag lines are rendered as bordered boxes for visual separation.
+// Tag lines and their body lines are rendered together inside bordered boxes.
 func styleLogs(content string, width int) string {
 	lines := strings.Split(content, "\n")
 	var result []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		// XML-style tags — render as bordered box
-		case strings.HasPrefix(trimmed, "<") && strings.Contains(trimmed, ">"):
+
+	boxWidth := width - 2 // account for border chars
+	if boxWidth < 10 {
+		boxWidth = 10
+	}
+
+	i := 0
+	for i < len(lines) {
+		trimmed := strings.TrimSpace(lines[i])
+
+		if isTagLine(trimmed) {
+			// Gather tag label + any following body lines into one box
 			label := tagToLabel(trimmed)
-			boxWidth := width - 2 // account for border chars
-			if boxWidth < 10 {
-				boxWidth = 10
+			parts := []string{label}
+			i++
+			for i < len(lines) {
+				next := strings.TrimSpace(lines[i])
+				if next == "" || isTagLine(next) {
+					break
+				}
+				parts = append(parts, lines[i])
+				i++
 			}
-			box := logTagStyle.Width(boxWidth).Render(label)
+			box := logTagStyle.Width(boxWidth).Render(strings.Join(parts, "\n"))
 			result = append(result, box)
+			continue
+		}
 
 		// Legacy markdown formats (old logs)
+		switch {
 		case strings.HasPrefix(trimmed, "## "):
-			result = append(result, logHeadingStyle.Render(line))
+			result = append(result, logHeadingStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "### "):
-			result = append(result, logHeadingStyle.Render(line))
+			result = append(result, logHeadingStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "#### "):
-			result = append(result, logSubheadingStyle.Render(line))
+			result = append(result, logSubheadingStyle.Render(lines[i]))
 		case trimmed == "---":
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "$") && strings.Contains(trimmed, " | ") && strings.Contains(trimmed, "turns"):
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "sleeping "):
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "warning:"):
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "─── "):
-			result = append(result, logHeadingStyle.Render(line))
+			result = append(result, logHeadingStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "── "):
-			result = append(result, logHeadingStyle.Render(line))
+			result = append(result, logHeadingStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "cost:"):
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "▶ "), strings.HasPrefix(trimmed, "◀ "), strings.HasPrefix(trimmed, "✗ "):
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		case strings.HasPrefix(trimmed, "[") && strings.Contains(trimmed, "] running task"):
-			result = append(result, logDimStyle.Render(line))
+			result = append(result, logDimStyle.Render(lines[i]))
 		default:
-			result = append(result, line)
+			result = append(result, lines[i])
 		}
+		i++
 	}
 	return strings.Join(result, "\n")
 }
@@ -1003,7 +1015,7 @@ func (m *model) selectCurrentBot() {
 	}
 	m.activeLogs = []string{name}
 	m.newLogLines = 0
-	m.logPanels[name] = newLogPanel(name, m.botID(name), m.width, m.database)
+	m.logPanels[name] = newLogPanel(name, m.botID(name), m.width, m.svc)
 	m.recalcLayout()
 	m.initLogView()
 }
@@ -1017,7 +1029,7 @@ func (m *model) cursorBotName() string {
 
 // botID returns the stable DB key for a bot (from config id field, or folder name).
 func (m *model) botID(name string) string {
-	if b, ok := m.botCache[name]; ok && b.ID != "" {
+	if b, ok := m.botCache[name]; ok {
 		return b.ID
 	}
 	return name
@@ -1054,18 +1066,17 @@ func (m *model) toggleBot() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	id := m.botID(name)
-	running, pid := process.IsRunning(id, m.database)
-	if running {
+	id := bot.ID
+	if bot.Status == "running" {
 		// Stop: send kill in goroutine, no DB access
-		m.pending = &pendingAction{kind: "stop", botName: name, botID: id, bot: bot}
+		m.pending = &pendingAction{kind: "stop", botName: name, botID: id, bot: *bot}
 		m.setNotify(fmt.Sprintf("stopping %s...", name), false)
 		m.appendLogEvent(name, "stopping...")
 		m.refreshBots()
-		return m, killProcessCmd(name, pid)
+		return m, killProcessCmd(name, bot.PID)
 	}
-	// Start: synchronous
-	newPid, err := process.StartBot(name, bot.Path, bot.Config, false, m.database)
+	// Start: synchronous via service
+	newPid, err := m.svc.StartBot(name)
 	if err != nil {
 		m.setNotify(fmt.Sprintf("failed to start %s: %v", name, err), true)
 		m.appendLogEvent(name, fmt.Sprintf("failed to start: %v", err))
@@ -1089,17 +1100,16 @@ func (m *model) clearBot() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	id := m.botID(name)
-	running, pid := process.IsRunning(id, m.database)
-	if running {
-		m.pending = &pendingAction{kind: "clear", botName: name, botID: id, bot: bot}
+	id := bot.ID
+	if bot.Status == "running" {
+		m.pending = &pendingAction{kind: "clear", botName: name, botID: id, bot: *bot}
 		m.setNotify(fmt.Sprintf("clearing %s...", name), false)
 		m.appendLogEvent(name, "clearing context...")
 		m.refreshBots()
-		return m, killProcessCmd(name, pid)
+		return m, killProcessCmd(name, bot.PID)
 	}
 	// Not running — just start fresh
-	newPid, err := process.StartBot(name, bot.Path, bot.Config, false, m.database)
+	newPid, err := m.svc.StartBot(name)
 	if err != nil {
 		m.setNotify(fmt.Sprintf("failed to start %s: %v", name, err), true)
 		m.appendLogEvent(name, fmt.Sprintf("failed to start: %v", err))
@@ -1121,25 +1131,22 @@ func (m *model) executeDelete() (tea.Model, tea.Cmd) {
 	if bot == nil {
 		return m, nil
 	}
-	id := m.botID(name)
 
-	running, pid := process.IsRunning(id, m.database)
-	if running {
+	if bot.Status == "running" {
 		// Stop first, then delete in handleProcessStopped
-		m.pending = &pendingAction{kind: "delete", botName: name, botID: id, bot: bot}
+		m.pending = &pendingAction{kind: "delete", botName: name, botID: bot.ID, bot: *bot}
 		m.setNotify(fmt.Sprintf("stopping %s...", name), false)
-		return m, killProcessCmd(name, pid)
+		return m, killProcessCmd(name, bot.PID)
 	}
 
 	// Not running — delete immediately
-	m.finishDelete(name, id, bot)
+	m.finishDelete(name, bot)
 	return m, nil
 }
 
-// finishDelete removes DB data and the bot directory.
-func (m *model) finishDelete(name, id string, bot *discovery.Bot) {
-	m.database.DeleteBotData(id)
-	os.RemoveAll(bot.Path)
+// finishDelete removes DB data and the bot directory via the service.
+func (m *model) finishDelete(name string, bot *service.BotInfo) {
+	m.svc.DeleteBot(name)
 
 	// Clean up log panel if viewing this bot
 	if len(m.activeLogs) > 0 && m.activeLogs[0] == name {
@@ -1198,35 +1205,20 @@ func (m model) submitResume() (tea.Model, tea.Cmd) {
 	if name == "" {
 		return m, nil
 	}
-	id := m.botID(name)
-	bot := m.botCache[name]
-	if bot == nil {
-		return m, nil
-	}
 
-	msg := fmt.Sprintf("resume:%d", turns)
-	if err := m.database.EnqueueMessage(id, msg); err != nil {
+	result, err := m.svc.Resume(name, turns)
+	if err != nil {
 		m.setNotify(fmt.Sprintf("resume failed: %v", err), true)
 		return m, nil
 	}
 
 	m.appendLogEvent(name, fmt.Sprintf("resume for %d turns", turns))
 
-	running, pid := process.IsRunning(id, m.database)
-	if running {
-		syscall.Kill(pid, syscall.SIGUSR1)
-		m.setNotify(fmt.Sprintf("resume sent to %s (%d turns)", name, turns), false)
-	} else {
-		newPid, err := process.StartBot(name, bot.Path, bot.Config, false, m.database)
-		if err != nil {
-			m.setNotify(fmt.Sprintf("failed to start %s: %v", name, err), true)
-			m.appendLogEvent(name, fmt.Sprintf("failed to start: %v", err))
-		} else {
-			m.setNotify(fmt.Sprintf("%s started with resume (pid %d)", name, newPid), false)
-			m.appendLogEvent(name, fmt.Sprintf("started (pid %d)", newPid))
-		}
+	if strings.Contains(result, "started") {
+		m.appendLogEvent(name, result)
 		m.refreshBots()
 	}
+	m.setNotify(fmt.Sprintf("resume: %s", result), false)
 
 	m.selectBotByName(name)
 	return m, nil
@@ -1264,16 +1256,17 @@ func (m model) handleProcessStopped(msg processStoppedMsg) (tea.Model, tea.Cmd) 
 	m.pending = nil
 
 	// Clean up PID from DB (synchronous, fast)
-	m.database.RemovePID(p.botID)
+	m.svc.RemovePID(p.botID)
 
 	switch p.kind {
 	case "stop":
+		m.svc.LogEvent(p.botID, "stopped")
 		m.setNotify(fmt.Sprintf("%s stopped", p.botName), false)
 		m.appendLogEvent(p.botName, "stopped")
 		m.refreshBots()
 
 	case "clear":
-		newPid, err := process.StartBot(p.botName, p.bot.Path, p.bot.Config, false, m.database)
+		newPid, err := m.svc.StartBot(p.botName)
 		if err != nil {
 			m.setNotify(fmt.Sprintf("failed to start %s: %v", p.botName, err), true)
 			m.appendLogEvent(p.botName, fmt.Sprintf("failed to start: %v", err))
@@ -1284,7 +1277,7 @@ func (m model) handleProcessStopped(msg processStoppedMsg) (tea.Model, tea.Cmd) 
 		m.refreshBots()
 
 	case "delete":
-		m.finishDelete(p.botName, p.botID, p.bot)
+		m.finishDelete(p.botName, &p.bot)
 	}
 	return m, nil
 }
@@ -1318,19 +1311,8 @@ func (m model) View() string {
 	var b strings.Builder
 
 	// Header with aggregate stats
-	var totalRuns int
-	var totalCost float64
-	var runningCount int
-	for _, name := range m.botNames {
-		stats := m.database.GetBotStats(m.botID(name))
-		totalRuns += stats.Runs
-		totalCost += stats.TotalCost
-		running, _ := process.IsRunning(m.botID(name), m.database)
-		if running {
-			runningCount++
-		}
-	}
-	b.WriteString(renderHeader(m.width, runningCount, len(m.botNames), totalRuns, totalCost))
+	aggStats := m.svc.GetStats()
+	b.WriteString(renderHeader(m.width, aggStats.RunningBots, aggStats.TotalBots, aggStats.TotalRuns, aggStats.TotalCost))
 	b.WriteString("\n\n")
 
 	// Bots header with label and filter
@@ -1387,7 +1369,7 @@ func (m model) View() string {
 	if logBot := m.cursorBotName(); logBot != "" {
 		bot := m.botCache[logBot]
 		if bot != nil && bot.Config.MaxTurns > 0 {
-			turns := m.database.LatestRunTurns(m.botID(logBot))
+			turns := m.svc.LatestRunTurns(m.botID(logBot))
 			turnInfo := headerVersionStyle.Render(fmt.Sprintf("turn %d/%d", turns, bot.Config.MaxTurns))
 			b.WriteString(" " + turnInfo)
 		}
@@ -1418,7 +1400,7 @@ func (m model) View() string {
 	// Row 2: help bar
 	startStop := "s:start"
 	if name := m.cursorBotName(); name != "" {
-		if running, _ := process.IsRunning(m.botID(name), m.database); running {
+		if bot, ok := m.botCache[name]; ok && bot.Status == "running" {
 			startStop = "s:stop"
 		}
 	}
@@ -1568,8 +1550,9 @@ func Run() error {
 	}
 	defer database.Close()
 
+	svc := service.New(database)
 	p := tea.NewProgram(
-		newModel(database),
+		newModel(svc),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

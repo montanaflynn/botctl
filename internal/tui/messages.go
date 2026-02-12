@@ -3,7 +3,7 @@ package tui
 import (
 	"time"
 
-	"github.com/montanaflynn/botctl-go/internal/discovery"
+	"github.com/montanaflynn/botctl-go/internal/service"
 )
 
 // tickMsg fires on the refresh interval.
@@ -17,10 +17,10 @@ type processStoppedMsg struct{ botName string }
 
 // pendingAction tracks an in-flight kill operation and what to do after.
 type pendingAction struct {
-	kind    string // "stop", "restart"
+	kind    string // "stop", "restart", "clear", "delete"
 	botName string
 	botID   string
-	bot     *discovery.Bot
+	bot     service.BotInfo
 }
 
 // createDoneMsg is sent when the botctl create subprocess finishes.
