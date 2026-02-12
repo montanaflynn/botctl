@@ -1,0 +1,24 @@
+builds:
+  - main: .
+    binary: botctl
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: binary
+    name_template: "botctl-{{ .Os }}-{{ .Arch }}"
+
+changelog:
+  sort: asc
+
+release:
+  github:
+    owner: montanaflynn
+    name: botctl

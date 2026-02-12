@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"syscall"
 
 	"github.com/montanaflynn/botctl-go/internal/process"
 )
@@ -24,7 +23,7 @@ func (s *Service) SendMessage(name, message string) (string, error) {
 
 	running, pid := process.IsRunning(id, s.db)
 	if running {
-		syscall.Kill(pid, syscall.SIGUSR1)
+		process.WakeProcess(pid)
 		return "queued", nil
 	}
 
@@ -55,7 +54,7 @@ func (s *Service) Resume(name string, turns int) (string, error) {
 
 	running, pid := process.IsRunning(id, s.db)
 	if running {
-		syscall.Kill(pid, syscall.SIGUSR1)
+		process.WakeProcess(pid)
 		return fmt.Sprintf("resume sent (%d turns)", turns), nil
 	}
 

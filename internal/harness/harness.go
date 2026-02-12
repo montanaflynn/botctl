@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/montanaflynn/botctl-go/internal/config"
@@ -290,10 +288,10 @@ func Run(botDir string, once bool, message string) error {
 	fmt.Printf("%s started at %s\n", name, time.Now().Format(time.RFC3339))
 	fmt.Printf("  workspace: %s\n", workspace)
 
-	// Persistent SIGUSR1 handler — shared across sleep and run phases
-	wakeCh := make(chan os.Signal, 1)
-	signal.Notify(wakeCh, syscall.SIGUSR1)
-	defer signal.Stop(wakeCh)
+	// Persistent wake handler — shared across sleep and run phases
+	// On Unix: listens for SIGUSR1; on Windows: listens on a named event
+	wakeCh, stopWake := newWakeChannel(id, os.Getpid())
+	defer stopWake()
 
 	var lastSessionID string // set when a run hits max turns or is interrupted
 
@@ -349,27 +347,9 @@ func Run(botDir string, once bool, message string) error {
 		fmt.Printf("\n## %s\n", runHeader)
 		database.InsertLogEntry(id, runID, "run_header", runHeader, "")
 
-		// Set up per-run interrupt channel: forwards SIGUSR1 to SDK
+		// Set up per-run interrupt channel: forwards wake signals to SDK
 		interruptCh := make(chan struct{})
-		stopForward := make(chan struct{})
-		go func() {
-			for {
-				select {
-				case <-wakeCh:
-					// Only interrupt if there are pending messages
-					if database.HasPendingMessages(id) {
-						select {
-						case interruptCh <- struct{}{}:
-						default:
-						}
-						return
-					}
-					// Signal received but no messages — ignore (spurious wake)
-				case <-stopForward:
-					return
-				}
-			}
-		}()
+		stopForward := startInterruptForwarder(wakeCh, interruptCh, database, id)
 
 		result := runTask(absDir, cfg, workspace, runID, database, id, feedback, resumeSession, interruptCh)
 
@@ -447,13 +427,4 @@ func Run(botDir string, once bool, message string) error {
 	}
 
 	return nil
-}
-
-// sleepUntilWake sleeps for the given duration but can be woken early
-// by a signal on the provided channel (SIGUSR1 sent by TUI when a message is queued).
-func sleepUntilWake(seconds int, wakeCh <-chan os.Signal) {
-	select {
-	case <-wakeCh:
-	case <-time.After(time.Duration(seconds) * time.Second):
-	}
 }

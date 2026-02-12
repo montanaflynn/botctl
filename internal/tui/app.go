@@ -2,13 +2,11 @@ package tui
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -18,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/montanaflynn/botctl-go/internal/config"
 	"github.com/montanaflynn/botctl-go/internal/db"
+	"github.com/montanaflynn/botctl-go/internal/process"
 	"github.com/montanaflynn/botctl-go/internal/service"
 )
 
@@ -1225,24 +1224,9 @@ func (m model) submitResume() (tea.Model, tea.Cmd) {
 }
 
 // killProcessCmd returns a tea.Cmd that kills a process group with zero DB access.
-// Sends SIGTERM, polls for up to 3s, then SIGKILL if still alive.
 func killProcessCmd(name string, pid int) tea.Cmd {
 	return func() tea.Msg {
-		_ = syscall.Kill(-pid, syscall.SIGTERM)
-
-		for i := 0; i < 30; i++ {
-			time.Sleep(100 * time.Millisecond)
-			proc, err := os.FindProcess(pid)
-			if err != nil {
-				return processStoppedMsg{botName: name}
-			}
-			if err := proc.Signal(syscall.Signal(0)); err != nil {
-				return processStoppedMsg{botName: name}
-			}
-		}
-
-		// Force kill if still alive
-		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		process.KillProcessGroup(pid)
 		return processStoppedMsg{botName: name}
 	}
 }
