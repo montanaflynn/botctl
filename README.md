@@ -5,7 +5,7 @@ Process manager for autonomous bots. Run persistent agents from a single CLI (`b
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/montanaflynn/botctl/main/install.sh | sh
+curl -fsSL https://botctl.dev/install.sh | sh
 ```
 
 Or with Go:
