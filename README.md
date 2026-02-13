@@ -1,6 +1,8 @@
-# `botctl` - control autonomous agent bots
+# botctl
 
-Process manager for autonomous bots. Run persistent agents from a single CLI (`botctl`) with a terminal dashboard and declaritive bot configuration protocol.
+Process manager for autonomous AI agent bots. Run persistent agents from a single CLI with a terminal dashboard, web UI, and declarative configuration.
+
+**[Website](https://botctl.dev)** &middot; **[Docs](https://botctl.dev/docs)** &middot; **[Releases](https://github.com/montanaflynn/botctl/releases)**
 
 ## Install
 
@@ -10,26 +12,13 @@ curl -fsSL https://botctl.dev/install.sh | sh
 
 Or with Go:
 
-```
+```bash
 go install github.com/montanaflynn/botctl@latest
 ```
 
 Pre-built binaries for macOS, Linux, and Windows are on the [releases](https://github.com/montanaflynn/botctl/releases) page.
 
-## Glossary
-
-| Term | Definition |
-|------|-----------|
-| **Bot** | An ai-powered agent. Lives at `~/.botctl/bots/{name}/` with a `BOT.md` config file. |
-| **Harness** | The background process that runs and interacts with a bots loop, start|stop|interrupt|resume|restart logic. |
-| **Run** | One iteration of the harness loop. A run starts when the harness wakes up and ends when it goes back to sleep. Each run produces a log file. |
-| **Turn** | A single assistant response from Claude within a run. A run with `max_turns: 10` allows Claude to respond 10 times (each response may include tool calls). |
-| **Session** | Claude's conversation context. Includes all messages exchanged so far. Identified by a session ID. |
-| **Resume** | Continuing a session after it hit `max_turns`. The harness picks up where Claude left off using the saved session ID. |
-| **Skill** | A markdown file in the bot's `skills_dir` that gets injected as instructions into Claude's system prompt. |
-| **Workspace** | The directory where a bot reads and writes files. Can be `local` (per-bot) or `shared` (common across bots). |
-
-## Quick start
+## Quick Start
 
 ```bash
 # Create a bot (interactive)
@@ -54,7 +43,7 @@ botctl logs my-bot -f
 botctl stop my-bot
 ```
 
-## CLI commands
+## CLI Commands
 
 | Command | Description |
 |---------|-------------|
@@ -67,27 +56,23 @@ botctl stop my-bot
 | `botctl logs [name]` | View logs (`-n` lines, `-f` follow) |
 | `botctl delete <name>` | Delete a bot and its data (`-y` skip confirmation) |
 | `botctl update` | Self-update to the latest release |
-| `botctl --version` | Show version and commit hash |
-| `botctl --help` | Show help for any command |
 
-## TUI keybindings
+## TUI Keybindings
 
 | Key | Action |
 |-----|--------|
 | `s` | Start/stop selected bot |
 | `r` | Resume (editable turn count) |
-| `m` or `enter` | Send message to bot |
+| `m` / `enter` | Send message to bot |
 | `n` | Create new bot |
 | `c` | Clear bot logs and runs |
 | `d` | Delete bot (with confirmation) |
 | `o` | Open bot directory |
-| `f` or `tab` | Focus filter bar |
-| `up`/`down` or `j`/`k` | Navigate bot list |
+| `f` / `tab` | Focus filter bar |
+| `j` / `k` | Navigate bot list |
 | `q` | Quit |
 
-> **Tip:** To select text in the TUI, hold **Option** (iTerm2/macOS Terminal) or **Shift** (most other terminals) while clicking and dragging. This is standard for all terminal apps that capture mouse input.
-
-## BOT.md format
+## BOT.md Configuration
 
 Each bot is defined by a `BOT.md` file with YAML frontmatter and a markdown body:
 
@@ -102,40 +87,25 @@ skills_dir: ./skills
 log_retention: 30
 ---
 
-# My Bot
-
 You are an autonomous agent that...
-
-## Steps
-
-- Reads tasks.md
-- Does the tasks, marking them as done and leaving summary under it. Use subagents if you want, just make sure each one only changes it's tasks and does git worktree so it's not interferring. If you're marking a task as done you also merge to main and delete the worktree after your task is done.
-
-## Finishing tasks
-
-- Always plan how to accomplish a task effeciently. Use your skills effeciently, prefer cli tools.
-- If applicable create tests, documentation, and other supporting new files or update existing files.
 ```
 
-### Frontmatter fields
+### Frontmatter Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | required | Display name |
 | `id` | string | folder name | Stable database key (survives folder renames) |
 | `interval_seconds` | int | 60 | Seconds between runs |
-| `max_turns` | int | 0 (unlimited) | Turn limit per run. When hit, the session is saved and can be resumed with `u`. |
-| `workspace` | string | `local` | `local` = per-bot directory, `shared` = `~/.botctl/workspace/` |
+| `max_turns` | int | 0 (unlimited) | Turn limit per run |
+| `workspace` | string | `local` | `local` (per-bot) or `shared` (`~/.botctl/workspace/`) |
 | `skills_dir` | string | — | Relative path to skill markdown files |
-| `log_dir` | string | `logs/` | Custom log directory |
-| `log_retention` | int | 30 | Number of run logs to keep before pruning |
+| `log_retention` | int | 30 | Number of run logs to keep |
 | `env` | map | — | Environment variables (supports `${VAR}` references) |
 
-### Markdown body
+The markdown body becomes the bot's system prompt. Claude sees it every run.
 
-The body becomes the bot's prompt. Claude sees it every run along with the system prompt (workspace path, skills, turn limit).
-
-## How it works
+## How It Works
 
 ```
 ┌─────────────────────────────────────────┐
@@ -153,15 +123,15 @@ The body becomes the bot's prompt. Claude sees it every run along with the syste
 └─────────────────────────────────────────┘
 ```
 
-The harness reloads `BOT.md` every iteration, so config changes (including `max_turns`) take effect on the next run without restarting.
+Config changes (including `max_turns`) take effect on the next run without restarting.
 
-### Resume flow
+### Resume
 
-When a run hits `max_turns`, the session ID is saved. Pressing `u` in the TUI opens an input pre-filled with the current `max_turns` from BOT.md. Edit the number and press enter to resume the session with that turn limit.
+When a run hits `max_turns`, the session ID is saved. Press `r` in the TUI to resume with an editable turn limit.
 
 ### Skills
 
-Skills are markdown files in the bot's `skills_dir`. The harness tells Claude to read every file in the directory. Each skill is an instruction set the bot follows.
+Skills are markdown files in `skills_dir` that get injected into the bot's system prompt:
 
 ```
 my-bot/
@@ -170,60 +140,37 @@ my-bot/
     api-access.md
     safety-rules.md
   workspace/
-    state.json
 ```
 
-### Workspaces
-
-- **Local** (`workspace: local`): `~/.botctl/bots/{name}/workspace/` — private to this bot
-- **Shared** (`workspace: shared`): `~/.botctl/workspace/` — shared across all bots that opt in
-
-Claude's working directory is set to the workspace. All file operations happen there by default.
-
-## File layout
+## File Layout
 
 ```
 ~/.botctl/
-  botctl.db                          # SQLite database (runs, logs, PIDs, messages)
-  workspace/                     # Shared workspace
+  botctl.db              # SQLite database
+  workspace/             # Shared workspace
   bots/
     my-bot/
-      BOT.md                     # Bot config + prompt
-      skills/                    # Skill files (optional)
-      workspace/                 # Local workspace
-      logs/
-        20260208-142305.log      # Per-run log files
-        boot.log                 # Harness startup log
+      BOT.md             # Bot config + prompt
+      skills/            # Skill files (optional)
+      workspace/         # Local workspace
+      logs/              # Per-run log files
 ```
 
-## Updates
-
-`botctl` checks for new releases in the background. When a newer version is available, you'll see a notice after any command:
-
-```
-Update available: 0.1.0 → 0.2.0
-Run `botctl update` to update
-```
-
-Run `botctl update` to download and replace the binary in-place.
-
-## Web dashboard
-
-Start the web UI instead of the TUI:
+## Web Dashboard
 
 ```bash
 botctl --web-ui              # default port 4444
 botctl --web-ui --port 8080  # custom port
 ```
 
-## Database
+## Updates
 
-SQLite at `~/.botctl/botctl.db` with WAL mode. Stores:
+```bash
+botctl update
+```
 
-- **runs** — execution history (duration, cost, turns, session ID)
-- **pids** — active process tracking
-- **messages** — raw Claude API responses
-- **pending_messages** — message queue for operator-to-bot communication
-- **log_entries** — structured log records
+Checks for new releases and replaces the binary in-place.
 
-Set `MM_HOME` to override the default `~/.botctl` directory.
+## License
+
+MIT
