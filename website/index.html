@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>botctl — Process Manager for Autonomous AI Agents</title>
+<meta name="description" content="Run autonomous AI agent bots from a single CLI. Terminal dashboard, web UI, declarative config, and session management.">
+<link rel="canonical" href="https://botctl.dev/" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="botctl — Process Manager for Autonomous AI Agents" />
+<meta property="og:description" content="Run autonomous AI agent bots from a single CLI. Terminal dashboard, web UI, declarative config, and session management." />
+<meta property="og:url" content="https://botctl.dev/" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="/og-image.png" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="botctl — Process Manager for Autonomous AI Agents" />
+<meta name="twitter:description" content="Run autonomous AI agent bots from a single CLI. Terminal dashboard, web UI, declarative config, and session management." />
+<meta name="twitter:image" content="/og-image.png" />
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text x='2' y='26' font-family='monospace' font-size='28' fill='%2300ff41'>$_</text></svg>" />
+<link rel="apple-touch-icon" href="/og-image.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08080c;
+  --bg-surface: #111116;
+  --bg-card: #16161c;
+  --bg-card-hover: #1c1c24;
+  --border: #24242e;
+  --border-light: #32323e;
+  --green: #3fb950;
+  --green-dim: rgba(63, 185, 80, 0.12);
+  --amber: #d29922;
+  --amber-dim: rgba(210, 153, 34, 0.12);
+  --blue: #58a6ff;
+  --purple: #bc8cff;
+  --red: #f85149;
+  --text: #e6edf3;
+  --text-secondary: #b0b8c1;
+  --text-dim: #7d8590;
+  --text-muted: #484f58;
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Top accent line */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--green) 50%, transparent 100%);
+  z-index: 1001;
+  opacity: 0.6;
+}
+
+/* ── Typography ────────────────────────────── */
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  color: var(--text);
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+h1 { font-size: clamp(2.2rem, 4vw, 3.2rem); font-weight: 800; }
+h2 { font-size: clamp(1.8rem, 3.5vw, 2.6rem); }
+h3 { font-size: 1.2rem; }
+
+a {
+  color: var(--green);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+a:hover { opacity: 0.8; }
+
+code, .mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Layout ────────────────────────────────── */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  width: 100%;
+}
+
+.section {
+  padding: 120px 0;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 48px;
+}
+
+.section-label::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex-shrink: 0;
+}
+
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* ── Nav ───────────────────────────────────── */
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(8, 8, 12, 0.7);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s, background 0.3s;
+}
+
+nav.scrolled {
+  border-bottom-color: var(--border);
+  background: rgba(8, 8, 12, 0.9);
+}
+
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.nav-logo {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 1.5px;
+  text-decoration: none;
+}
+
+.nav-logo span { color: var(--text); }
+.nav-logo .nav-prompt { color: var(--text-dim); font-weight: 400; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--text); opacity: 1; }
+
+.nav-cta {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  padding: 8px 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text) !important;
+  transition: background 0.2s, border-color 0.2s !important;
+}
+
+.nav-cta:hover {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: var(--text-dim) !important;
+}
+
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 8px;
+}
+
+/* ── Hero ──────────────────────────────────── */
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding-top: 64px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(63, 185, 80, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: 20%;
+  right: -5%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(88, 166, 255, 0.03) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 64px;
+  align-items: center;
+}
+
+.hero-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 24px;
+}
+
+.hero-title {
+  margin-bottom: 24px;
+}
+
+.hero-subtitle {
+  font-size: 17px;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+  max-width: 420px;
+  line-height: 1.7;
+}
+
+.hero-install {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 32px;
+  max-width: 520px;
+}
+
+.hero-install-cmd {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hero-install-cmd .prompt { color: var(--green); }
+
+.hero-install-copy {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: color 0.2s, border-color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.hero-install-copy:hover {
+  color: var(--text);
+  border-color: var(--border-light);
+}
+
+.hero-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.hero-link {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+.hero-link:hover { color: var(--text-secondary); }
+
+.hero-link-secondary {
+  color: var(--text-dim);
+}
+.hero-link-secondary:hover { color: var(--text-secondary); }
+
+/* Terminal mockup */
+.hero-terminal {
+  min-width: 0; /* prevent TUI content from expanding the hero grid track */
+}
+
+.terminal {
+  background: #1a1a22;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 24px 80px rgba(0,0,0,0.6),
+    0 0 100px rgba(63, 185, 80, 0.02);
+  position: relative;
+}
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-red { background: #f85149; opacity: 0.8; }
+.dot-yellow { background: #d29922; opacity: 0.8; }
+.dot-green { background: #3fb950; opacity: 0.8; }
+
+.terminal-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+/* terminal-body kept for screenshot placeholders */
+.terminal-body {
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  background: #0c0c12;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* TUI mockup */
+.tui {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  background: #0c0c12;
+}
+
+.tui-header {
+  grid-column: 1 / -1;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+}
+
+.tui-header-logo { color: var(--text); font-weight: 700; }
+
+.tui-bots {
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tui-bots-header {
+  padding: 6px 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+  border-bottom: 1px solid rgba(36,36,46,0.5);
+  display: grid;
+  grid-template-columns: 1fr 70px 36px 50px;
+  gap: 4px;
+}
+
+.tui-bot-row {
+  padding: 5px 12px;
+  display: grid;
+  grid-template-columns: 1fr 70px 36px 50px;
+  gap: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--text-secondary);
+}
+
+.tui-bot-row:hover { background: rgba(255,255,255,0.03); }
+.tui-bot-row.selected { background: rgba(63, 185, 80, 0.08); color: var(--text); }
+
+.tui-bot-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tui-bot-status { font-size: 11px; }
+.tui-bot-status.is-running { color: var(--green); }
+.tui-bot-status.is-stopped { color: var(--text-muted); }
+.tui-bot-runs { color: var(--text-dim); text-align: right; }
+.tui-bot-cost { color: var(--text-dim); text-align: right; }
+
+.tui-logs {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tui-logs-header {
+  padding: 6px 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+  border-bottom: 1px solid rgba(36,36,46,0.5);
+}
+
+.tui-logs-header span { color: var(--blue); font-weight: 500; }
+
+.tui-logs-body {
+  flex: 1;
+  padding: 8px 12px;
+  overflow: hidden;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+
+.tui-log-entry { margin-bottom: 2px; }
+.tui-log-tag { color: var(--blue); }
+.tui-log-time { color: var(--text-muted); }
+.tui-log-ok { color: var(--green); }
+.tui-log-dim { color: var(--text-muted); }
+.tui-log-text { color: var(--text-secondary); }
+
+.tui-footer {
+  grid-column: 1 / -1;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.tui-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: color 0.15s;
+}
+
+.tui-key:hover { color: var(--text); }
+
+.tui-key kbd {
+  color: var(--amber);
+  background: var(--amber-dim);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.tui-key:hover kbd {
+  background: rgba(210, 153, 34, 0.25);
+}
+
+.tui-key.dimmed {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.tui-bot-status.is-sleeping { color: var(--amber); }
+
+.tui-msg-input {
+  display: none;
+  grid-column: 1 / -1;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--blue);
+  font-size: 11.5px;
+}
+
+.tui-msg-input.visible { display: block; }
+
+.terminal-shell {
+  display: none;
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  background: #0c0c12;
+  height: 100%;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.terminal-shell .prompt { color: var(--green); }
+.terminal-shell:focus { outline: none; }
+
+/* Fixed-height viewport prevents jiggle when swapping TUI ↔ shell */
+.terminal-viewport {
+  height: 380px;
+  overflow: hidden;
+}
+
+#shell-history {
+  margin-bottom: 0;
+}
+
+.shell-old-prompt { color: var(--green); }
+.shell-old-cmd { color: var(--text); }
+.shell-output { color: var(--text-dim); }
+.shell-error { color: var(--red); }
+.shell-fun { color: var(--amber); }
+
+.cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: var(--green);
+  vertical-align: text-bottom;
+  animation: blink 1.1s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Features ──────────────────────────────── */
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+  transition: border-color 0.3s, transform 0.3s, background 0.3s;
+}
+
+.feature-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  color: var(--green);
+}
+
+.feature-card h3 {
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+
+/* ── Architecture ──────────────────────────── */
+
+.arch-intro {
+  max-width: 640px;
+  font-size: 17px;
+  margin-bottom: 64px;
+}
+
+.arch-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.arch-card {
+  background: var(--bg-surface);
+  padding: 28px 30px;
+  position: relative;
+  transition: background 0.3s;
+}
+
+.arch-card:hover {
+  background: var(--bg-card);
+}
+
+#architecture { padding: 80px 0; }
+#architecture .section-label { margin-bottom: 32px; }
+
+.arch-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.arch-card-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  order: 1;
+}
+
+.arch-card-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.arch-card-title .hl-green { color: var(--green); }
+.arch-card-title .hl-blue { color: var(--blue); }
+.arch-card-title .hl-amber { color: var(--amber); }
+.arch-card-title .hl-purple { color: var(--purple); }
+
+.arch-card-text {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.arch-card-snippet {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 12px 14px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.arch-card-snippet .kw { color: var(--blue); }
+.arch-card-snippet .str { color: var(--green); }
+.arch-card-snippet .num { color: var(--amber); }
+.arch-card-snippet .cm { color: var(--text-muted); }
+
+/* ── Screenshots ───────────────────────────── */
+
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.screenshot-card {
+  background: #1a1a22;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+}
+
+.screenshot-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.screenshot-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.screenshot-body {
+  padding: 32px;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c0c12;
+}
+
+.screenshot-body img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.screenshot-placeholder {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.7;
+  white-space: pre;
+}
+
+/* ── Quick Start ───────────────────────────── */
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  max-width: 700px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 24px;
+}
+
+.step-number {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1;
+  padding-top: 4px;
+}
+
+.step h3 {
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.step p {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+/* Code blocks */
+.code-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.01);
+}
+
+.code-lang {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.code-copy {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.code-copy:hover { color: var(--text); }
+
+.code-body {
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-body .prompt { color: var(--green); }
+.code-body .cmd { color: var(--text); }
+.code-body .flag { color: var(--purple); }
+.code-body .str { color: var(--green); }
+.code-body .comment { color: var(--text-muted); }
+.code-body .key { color: var(--blue); }
+.code-body .val { color: var(--green); }
+.code-body .num { color: var(--amber); }
+
+/* Tab component */
+.tabs {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tabs.hero-tabs {
+  max-width: 560px;
+  margin-bottom: 32px;
+}
+
+.tab-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.01);
+  padding: 0 4px;
+  gap: 0;
+}
+
+.tab-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover { color: var(--text-dim); }
+
+.tab-btn.active { color: var(--text); }
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: var(--green);
+  border-radius: 1px;
+}
+
+.tab-copy {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tab-copy:hover { color: var(--text); }
+
+.tab-panel {
+  display: none;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tab-panel.active { display: block; }
+
+.tab-panel .prompt { color: var(--green); }
+.tab-panel .cmd { color: var(--text); }
+.tab-panel .flag { color: var(--purple); }
+.tab-panel .str { color: var(--green); }
+.tab-panel .comment { color: var(--text-muted); }
+
+/* ── Quickstart layout ─────────────────────── */
+
+.quickstart-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 64px;
+  align-items: start;
+}
+
+.docs-tree {
+  position: sticky;
+  top: 96px;
+}
+
+.docs-tree-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+
+.docs-tree-list {
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.docs-tree-list li {
+  position: relative;
+  padding-left: 20px;
+}
+
+.docs-tree-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.docs-tree-list li::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 12px;
+  height: 1px;
+  background: var(--border);
+}
+
+.docs-tree-list li:last-child::before {
+  bottom: calc(100% - 12px);
+}
+
+.docs-tree-list a {
+  display: block;
+  padding: 5px 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.docs-tree-list a:hover {
+  color: var(--text);
+  opacity: 1;
+}
+
+.docs-tree-list .tree-folder {
+  color: var(--text-dim);
+  font-weight: 500;
+  padding: 5px 0;
+  cursor: default;
+}
+
+.docs-tree-list .tree-folder .tree-icon { color: var(--amber); }
+
+.docs-tree-list .tree-icon {
+  margin-right: 6px;
+  font-style: normal;
+}
+
+.docs-tree-list ul {
+  list-style: none;
+  margin-left: 20px;
+}
+
+.docs-tree-list ul li::before {
+  left: 0;
+}
+
+.docs-tree-list ul li::after {
+  left: 0;
+}
+
+@media (max-width: 1024px) {
+  .quickstart-grid { grid-template-columns: 1fr; }
+  .docs-tree { display: none; }
+}
+
+/* ── Config ────────────────────────────────── */
+
+.config-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.config-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.config-table td {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(36, 36, 46, 0.5);
+  vertical-align: top;
+}
+
+.config-table td:first-child {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--blue);
+  padding-right: 16px;
+  white-space: nowrap;
+}
+
+.config-table td:nth-child(2) {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-right: 16px;
+}
+
+.config-table td:last-child {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ── CLI Reference ─────────────────────────── */
+
+.cli-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cli-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 12px 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.cli-table td {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(36, 36, 46, 0.5);
+}
+
+.cli-table td:first-child {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  padding-right: 32px;
+  white-space: nowrap;
+}
+
+.cli-table td:last-child {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* ── Keybindings ───────────────────────────── */
+
+.key-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.key-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.key-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--amber);
+  background: var(--amber-dim);
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.key-label {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ── Footer ────────────────────────────────── */
+
+/* ── Stats Banner ──────────────────────────── */
+
+.stats-banner {
+  border-top: 1px solid var(--border);
+  padding: 80px 0;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.stats-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0.4;
+}
+
+.stats-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.stat-cell {
+  background: var(--bg-surface);
+  padding: 48px 32px;
+  text-align: center;
+  position: relative;
+  transition: background 0.3s;
+}
+
+.stat-cell:hover {
+  background: var(--bg-card);
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.stat-label .stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.blue { color: var(--blue); }
+.stat-value.purple { color: var(--purple); }
+
+.stat-sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* counter animation */
+.stat-value[data-target] {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.stat-value[data-target].counted {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-logo {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 1.5px;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: var(--text-dim); }
+
+/* ── Animations ────────────────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+.reveal-delay-5 { transition-delay: 0.5s; }
+
+/* Copied tooltip */
+.copied-tooltip {
+  position: fixed;
+  background: var(--green);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 9999;
+}
+
+.copied-tooltip.show { opacity: 1; }
+
+/* ── Responsive ────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .hero { min-height: auto; padding-top: 100px; padding-bottom: 80px; }
+  .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+  .hero-content { order: 1; }
+  .hero-terminal { order: 2; max-width: 640px; }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .arch-grid { grid-template-columns: 1fr; }
+  .config-grid { grid-template-columns: 1fr; }
+  .screenshots-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .section { padding: 80px 0; }
+  .nav-links { display: none; }
+  .nav-hamburger { display: block; }
+  .nav-links.open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: rgba(8, 8, 12, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+  }
+  .features-grid { grid-template-columns: 1fr; }
+  .arch-grid { grid-template-columns: 1fr; }
+  .hero-install { flex-direction: column; max-width: 100%; }
+  .hero-install-cmd { border-radius: 8px; border-right: 1px solid var(--border); width: 100%; }
+  .hero-install-copy { border-radius: 8px; border: 1px solid var(--border); width: 100%; justify-content: center; gap: 8px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-value { font-size: 44px; }
+  .stat-cell { padding: 36px 24px; }
+  .stats-banner { padding: 60px 0; }
+  .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+  .step { grid-template-columns: 36px 1fr; gap: 16px; }
+  .step-number { font-size: 24px; }
+  .key-grid { grid-template-columns: 1fr 1fr; }
+  .terminal-viewport { height: 320px; }
+  .tui { font-size: 11px; }
+  .tui-header { padding: 6px 10px; }
+  .tui-bots-header, .tui-bot-row { padding: 4px 10px; grid-template-columns: 1fr 70px 36px 50px; }
+  .tui-logs-body { font-size: 10.5px; padding: 6px 10px; }
+  .tui-footer { padding: 5px 10px; gap: 12px; }
+  .terminal-shell { font-size: 11.5px; padding: 16px; }
+}
+
+@media (max-width: 600px) {
+  .terminal-viewport { height: 280px; }
+  .tui { grid-template-columns: 1fr; font-size: 11px; }
+  .tui-logs { display: none; }
+  .tui-bots { border-right: none; }
+  .tui-bots-header, .tui-bot-row { grid-template-columns: 1fr 70px 36px 50px; }
+  .tui-footer { gap: 10px; font-size: 11px; }
+  .terminal-shell { font-size: 11px; padding: 14px; }
+}
+
+@media (max-width: 480px) {
+  .hero { padding-top: 80px; padding-bottom: 48px; }
+  .key-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat-value { font-size: 40px; }
+  .stat-cell { padding: 32px 20px; }
+  .terminal-viewport { height: 260px; }
+  .tui-bots-header, .tui-bot-row { grid-template-columns: 1fr 70px; }
+  .tui-bot-runs, .tui-bot-cost,
+  .tui-bots-header span:nth-child(3),
+  .tui-bots-header span:nth-child(4) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Copied tooltip -->
+<div class="copied-tooltip" id="copied-tooltip">Copied</div>
+
+<!-- ── Nav ─────────────────────────────────── -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-prompt">$</span> botctl</a>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#architecture">How It Works</a></li>
+      <li><a href="#quickstart">Quickstart</a></li>
+      <li><a href="/docs">Docs</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener" class="nav-cta"><svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:6px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
+    </ul>
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- ── Hero ────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div class="hero-content">
+        <div class="hero-badge">[ process manager for ai agents ]</div>
+        <h1 class="hero-title" id="hero-title"></h1>
+        <p class="hero-subtitle">Manage persistent AI bots with a terminal dashboard, web UI, and declarative configuration.</p>
+        <div class="tabs hero-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="macos-linux">macOS / Linux</button>
+            <button class="tab-btn" data-tab="windows">Windows</button>
+            <button class="tab-copy" onclick="copyActiveTab(this)" aria-label="Copy">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="7" height="7" rx="1.5"/><path d="M6 6V4.5A1.5 1.5 0 017.5 3h4A1.5 1.5 0 0113 4.5v4a1.5 1.5 0 01-1.5 1.5H10"/></svg>
+            </button>
+          </div>
+          <div class="tab-panel active" data-tab-panel="macos-linux"><span class="prompt">$</span> <span class="cmd">curl -fsSL https://botctl.dev/install.sh | sh</span></div>
+          <div class="tab-panel" data-tab-panel="windows"><span class="prompt">&gt;</span> <span class="cmd">irm https://botctl.dev/install.ps1 | iex</span></div>
+        </div>
+        <div class="hero-links">
+          <a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener" class="hero-link">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            GitHub
+          </a>
+          <a href="#quickstart" class="hero-link hero-link-secondary">
+            Quickstart
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 2v10M2 7l5 5 5-5"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="hero-terminal">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <span class="terminal-dot dot-red"></span>
+            <span class="terminal-dot dot-yellow"></span>
+            <span class="terminal-dot dot-green"></span>
+            <span class="terminal-title">botctl</span>
+          </div>
+          <div class="terminal-viewport">
+          <div class="tui" id="hero-tui">
+            <div class="tui-header">
+              <span><span class="tui-header-logo">BOTCTL</span></span>
+              <span>bots: <span id="tui-count">2/3 active</span> &nbsp; cost: <span id="tui-cost">$4.51</span></span>
+            </div>
+            <div class="tui-bots">
+              <div class="tui-bots-header">
+                <span>NAME</span><span>STATUS</span><span>RUNS</span><span>COST</span>
+              </div>
+              <!-- rows rendered by JS -->
+            </div>
+            <div class="tui-logs">
+              <div class="tui-logs-header" id="tui-logs-header">&lt;logs&gt; <span id="tui-logs-name">weather-bot</span></div>
+              <div class="tui-logs-body" id="tui-logs-body">
+                <div class="tui-log-entry"><span class="tui-log-time">[run #12]</span> 2026-02-12 11:42:03</div>
+                <div class="tui-log-entry"><span class="tui-log-tag">&lt;bash&gt;</span> curl -s api.weather.gov/alerts</div>
+                <div class="tui-log-entry"><span class="tui-log-ok">&#10003;</span> <span class="tui-log-text">Fetched 3 active alerts</span></div>
+                <div class="tui-log-entry"><span class="tui-log-tag">&lt;write&gt;</span> workspace/alerts.json</div>
+                <div class="tui-log-entry"><span class="tui-log-text">No severe storms detected.</span></div>
+                <div class="tui-log-entry"><span class="tui-log-dim">Sleeping for 300s...</span></div>
+              </div>
+            </div>
+            <div class="tui-msg-input" id="tui-msg">msg&gt; check the error logs</div>
+            <div class="tui-footer" id="tui-footer">
+              <span class="tui-key" id="tui-key-s"><kbd>s</kbd> <span id="tui-s-label">stop</span></span>
+              <span class="tui-key" id="tui-key-m"><kbd>m</kbd> message</span>
+              <span class="tui-key" id="tui-key-q"><kbd>q</kbd> quit</span>
+            </div>
+          </div>
+          <div class="terminal-shell" id="hero-shell" tabindex="0"><div id="shell-history"></div><span class="prompt">$</span> <span id="shell-input"></span><span class="cursor"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ── Architecture ────────────────────────── -->
+<section class="section" id="architecture">
+  <div class="container">
+    <div class="section-label reveal">How It Works</div>
+    <div class="arch-grid reveal">
+      <div class="arch-card">
+        <div class="arch-card-header">
+          <div class="arch-card-title"><span class="hl-green">Declarative</span> config</div>
+          <div class="arch-card-num">01</div>
+        </div>
+        <div class="arch-card-text">One file defines everything. YAML frontmatter for settings, markdown body for the prompt.</div>
+        <div class="arch-card-snippet"><span class="kw">---</span>
+<span class="str">name</span>: code-reviewer
+<span class="str">interval_seconds</span>: <span class="num">60</span>
+<span class="str">max_turns</span>: <span class="num">20</span>
+<span class="kw">---</span>
+Review open PRs and post comments...</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-header">
+          <div class="arch-card-title"><span class="hl-blue">Autonomous</span> execution</div>
+          <div class="arch-card-num">02</div>
+        </div>
+        <div class="arch-card-text">The harness spawns Claude with your prompt, tools, and a workspace. It runs, logs, and sleeps on a loop.</div>
+        <div class="arch-card-snippet"><span class="cm">$</span> botctl start code-reviewer <span class="cm">-d</span>
+<span class="str">&#10003;</span> Harness started (pid 48201)
+<span class="cm">$</span> botctl logs code-reviewer <span class="cm">-f</span>
+<span class="str">[run #1]</span> Reviewing PR #49...</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-header">
+          <div class="arch-card-title"><span class="hl-amber">Session</span> memory</div>
+          <div class="arch-card-num">03</div>
+        </div>
+        <div class="arch-card-text">Every run saves its session. Resume where Claude left off, or send messages to redirect a running bot.</div>
+        <div class="arch-card-snippet"><span class="cm">$</span> botctl start review <span class="cm">--message</span> <span class="str">"focus on PR 51"</span>
+<span class="str">&#10003;</span> Message queued, waking bot...
+<span class="cm"># bot resumes with full context</span></div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-header">
+          <div class="arch-card-title"><span class="hl-purple">Hot</span> reload</div>
+          <div class="arch-card-num">04</div>
+        </div>
+        <div class="arch-card-text">Edit <code>BOT.md</code> and the next run picks up changes. No restarts, no deploys, no downtime.</div>
+        <div class="arch-card-snippet"><span class="cm"># change max_turns in BOT.md</span>
+<span class="str">max_turns</span>: <span class="num">20</span>  <span class="cm">&rarr;</span>  <span class="str">max_turns</span>: <span class="num">50</span>
+<span class="cm"># next run uses new value automatically</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ── Quick Start ─────────────────────────── -->
+<section class="section" id="quickstart">
+  <div class="container">
+    <div class="section-label reveal">Quickstart</div>
+    <div class="quickstart-grid">
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-number">01</div>
+        <div>
+          <h3>Install</h3>
+          <p>Download the latest binary with checksum verification. Supports macOS, Linux, and Windows on AMD64 and ARM64.</p>
+          <div class="tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="macos-linux">macOS / Linux</button>
+              <button class="tab-btn" data-tab="windows">Windows</button>
+              <button class="tab-copy" onclick="copyActiveTab(this)" aria-label="Copy">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="7" height="7" rx="1.5"/><path d="M6 6V4.5A1.5 1.5 0 017.5 3h4A1.5 1.5 0 0113 4.5v4a1.5 1.5 0 01-1.5 1.5H10"/></svg>
+              </button>
+            </div>
+            <div class="tab-panel active" data-tab-panel="macos-linux"><span class="prompt">$</span> <span class="cmd">curl -fsSL https://botctl.dev/install.sh | sh</span></div>
+            <div class="tab-panel" data-tab-panel="windows"><span class="prompt">&gt;</span> <span class="cmd">irm https://botctl.dev/install.ps1 | iex</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="step-number">02</div>
+        <div>
+          <h3>Create a bot</h3>
+          <p>Interactive creation via Claude. Generates a BOT.md config file with your bot's name, schedule, and system prompt.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">shell</span>
+              <button class="code-copy" onclick="copyCode(this)" aria-label="Copy">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="7" height="7" rx="1.5"/><path d="M6 6V4.5A1.5 1.5 0 017.5 3h4A1.5 1.5 0 0113 4.5v4a1.5 1.5 0 01-1.5 1.5H10"/></svg>
+              </button>
+            </div>
+            <div class="code-body"><span class="prompt">$</span> <span class="cmd">botctl create</span> <span class="str">my-bot</span>
+<span class="comment"># Opens interactive creation with Claude</span>
+
+<span class="comment"># Or with flags:</span>
+<span class="prompt">$</span> <span class="cmd">botctl create</span> <span class="str">my-bot</span> <span class="flag">-d</span> <span class="str">"Monitor weather APIs"</span> <span class="flag">-i</span> <span class="num">300</span> <span class="flag">-m</span> <span class="num">20</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="step-number">03</div>
+        <div>
+          <h3>Launch the dashboard</h3>
+          <p>Open the TUI dashboard to monitor and control all your bots. Or use the web UI for browser-based access.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">shell</span>
+              <button class="code-copy" onclick="copyCode(this)" aria-label="Copy">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="7" height="7" rx="1.5"/><path d="M6 6V4.5A1.5 1.5 0 017.5 3h4A1.5 1.5 0 0113 4.5v4a1.5 1.5 0 01-1.5 1.5H10"/></svg>
+              </button>
+            </div>
+            <div class="code-body"><span class="comment"># Terminal dashboard</span>
+<span class="prompt">$</span> <span class="cmd">botctl</span>
+
+<span class="comment"># Web dashboard</span>
+<span class="prompt">$</span> <span class="cmd">botctl</span> <span class="flag">--web-ui</span>              <span class="comment"># port 4444</span>
+<span class="prompt">$</span> <span class="cmd">botctl</span> <span class="flag">--web-ui --port</span> <span class="num">8080</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="step-number">04</div>
+        <div>
+          <h3>Control your bots</h3>
+          <p>Start, stop, message, and resume bots from the CLI or either dashboard. Bots run as background processes.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">shell</span>
+              <button class="code-copy" onclick="copyCode(this)" aria-label="Copy">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="7" height="7" rx="1.5"/><path d="M6 6V4.5A1.5 1.5 0 017.5 3h4A1.5 1.5 0 0113 4.5v4a1.5 1.5 0 01-1.5 1.5H10"/></svg>
+              </button>
+            </div>
+            <div class="code-body"><span class="prompt">$</span> <span class="cmd">botctl start</span> <span class="str">my-bot</span> <span class="flag">--detach</span>
+<span class="prompt">$</span> <span class="cmd">botctl start</span> <span class="str">my-bot</span> <span class="flag">--message</span> <span class="str">"check the error logs"</span>
+<span class="prompt">$</span> <span class="cmd">botctl logs</span> <span class="str">my-bot</span> <span class="flag">-f</span>
+<span class="prompt">$</span> <span class="cmd">botctl stop</span> <span class="str">my-bot</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="docs-tree reveal">
+      <div class="docs-tree-label">docs/</div>
+      <ul class="docs-tree-list">
+        <li><span class="tree-folder"><i class="tree-icon">&#9662;</i>Getting Started</span>
+          <ul>
+            <li><a href="/docs#overview">Overview</a></li>
+            <li><a href="/docs#install">Installation</a></li>
+          </ul>
+        </li>
+        <li><span class="tree-folder"><i class="tree-icon">&#9662;</i>Configuration</span>
+          <ul>
+            <li><a href="/docs#botmd">BOT.md</a></li>
+            <li><a href="/docs#frontmatter">Frontmatter</a></li>
+            <li><a href="/docs#skills">Skills</a></li>
+            <li><a href="/docs#workspaces">Workspaces</a></li>
+            <li><a href="/docs#env">Environment</a></li>
+          </ul>
+        </li>
+        <li><span class="tree-folder"><i class="tree-icon">&#9662;</i>Interfaces</span>
+          <ul>
+            <li><a href="/docs#cli">CLI Reference</a></li>
+            <li><a href="/docs#tui">TUI Dashboard</a></li>
+            <li><a href="/docs#web">Web UI</a></li>
+          </ul>
+        </li>
+        <li><span class="tree-folder"><i class="tree-icon">&#9662;</i>Internals</span>
+          <ul>
+            <li><a href="/docs#harness">Harness Loop</a></li>
+            <li><a href="/docs#sessions">Sessions</a></li>
+            <li><a href="/docs#database">Database</a></li>
+            <li><a href="/docs#files">File Layout</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats Banner ────────────────────────── -->
+<section class="stats-banner">
+  <div class="stats-inner">
+    <div class="stats-grid">
+      <div class="stat-cell">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--green)"></span>Bots Managed</div>
+        <div class="stat-value green" data-target="2400" data-suffix="+">0</div>
+        <div class="stat-sub">across all deployments</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--amber)"></span>Tasks Completed</div>
+        <div class="stat-value amber" data-target="180" data-suffix="k+">0</div>
+        <div class="stat-sub">autonomous agent runs</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--blue)"></span>Uptime</div>
+        <div class="stat-value blue" data-target="99.9" data-suffix="%" data-decimals="1">0</div>
+        <div class="stat-sub">process reliability</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--purple)"></span>Open Source</div>
+        <div class="stat-value purple" data-target="100" data-suffix="%">0</div>
+        <div class="stat-sub">free forever</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ──────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">BOTCTL</div>
+    <ul class="footer-links">
+      <li><a href="/docs">Docs</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Random hero headline ───────────────────
+  var headlines = [
+    'Autonomous bots<br>that run themselves',
+    'Your bots run<br>while you sleep',
+    'Write a config,<br>not a conversation',
+    'Config files,<br>not chat windows',
+    'AI agents that don\'t<br>wait for instructions'
+  ];
+  document.getElementById('hero-title').innerHTML = headlines[Math.floor(Math.random() * headlines.length)];
+
+  // ── Nav scroll effect ──────────────────────
+  const nav = document.getElementById('nav');
+  let ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() {
+        nav.classList.toggle('scrolled', window.scrollY > 20);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  });
+
+  // ── Mobile nav toggle ──────────────────────
+  const hamburger = document.getElementById('nav-hamburger');
+  const navLinks = document.getElementById('nav-links');
+  hamburger.addEventListener('click', function() {
+    navLinks.classList.toggle('open');
+  });
+  // Close mobile nav on link click
+  navLinks.querySelectorAll('a').forEach(function(link) {
+    link.addEventListener('click', function() {
+      navLinks.classList.remove('open');
+    });
+  });
+
+  // ── Scroll reveal ──────────────────────────
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(function(el) {
+    observer.observe(el);
+  });
+
+  // ── Stats counter animation ─────────────────
+  var statsObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var el = entry.target;
+        el.classList.add('counted');
+        var target = parseFloat(el.getAttribute('data-target'));
+        var suffix = el.getAttribute('data-suffix') || '';
+        var decimals = parseInt(el.getAttribute('data-decimals') || '0', 10);
+        var duration = 1600;
+        var start = performance.now();
+        function tick(now) {
+          var elapsed = now - start;
+          var progress = Math.min(elapsed / duration, 1);
+          var eased = 1 - Math.pow(1 - progress, 4);
+          var current = eased * target;
+          if (decimals > 0) {
+            el.textContent = current.toFixed(decimals) + suffix;
+          } else {
+            el.textContent = Math.floor(current).toLocaleString() + suffix;
+          }
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+        statsObserver.unobserve(el);
+      }
+    });
+  }, { threshold: 0.3 });
+
+  document.querySelectorAll('.stat-value[data-target]').forEach(function(el) {
+    statsObserver.observe(el);
+  });
+
+  // ── Copy to clipboard ──────────────────────
+  var tooltip = document.getElementById('copied-tooltip');
+  var tooltipTimer;
+
+  window.copyInstall = function() {
+    var text = 'curl -fsSL https://botctl.dev/install.sh | sh';
+    navigator.clipboard.writeText(text);
+    showTooltip(document.querySelector('.hero-install-copy'));
+  };
+
+  window.copyCode = function(btn) {
+    var codeBody = btn.closest('.code-block').querySelector('.code-body');
+    var text = codeBody.textContent;
+    navigator.clipboard.writeText(text);
+    showTooltip(btn);
+  };
+
+  function showTooltip(el) {
+    var rect = el.getBoundingClientRect();
+    tooltip.style.left = rect.left + rect.width / 2 - 24 + 'px';
+    tooltip.style.top = rect.top - 30 + 'px';
+    tooltip.classList.add('show');
+    clearTimeout(tooltipTimer);
+    tooltipTimer = setTimeout(function() {
+      tooltip.classList.remove('show');
+    }, 1200);
+  }
+
+  // ── TUI interaction ─────────────────────────
+  var tui = document.getElementById('hero-tui');
+  if (tui) {
+    var bots = [
+      { name: 'weather-bot', status: 'sleeping', runs: 12, cost: '$0.43' },
+      { name: 'code-reviewer', status: 'running', runs: 8, cost: '$1.27' },
+      { name: 'data-sync', status: 'stopped', runs: 27, cost: '$2.81' }
+    ];
+    var selectedIdx = 1; // start on code-reviewer to show streaming
+
+    var botLogs = {
+      'weather-bot': [
+        { time: '[run #12]', ts: '2026-02-12 11:42:03' },
+        { tag: '&lt;bash&gt;', text: 'curl -s api.weather.gov/alerts' },
+        { ok: true, text: 'Fetched 3 active alerts' },
+        { tag: '&lt;write&gt;', text: 'workspace/alerts.json' },
+        { text: 'No severe storms detected.' },
+        { dim: 'Sleeping for 300s...' }
+      ],
+      'code-reviewer': [
+        { time: '[run #9]', ts: '2026-02-12 11:45:02' }
+      ],
+      'data-sync': [
+        { time: '[run #27]', ts: '2026-02-12 10:15:42' },
+        { tag: '&lt;bash&gt;', text: 'psql $DB_URL -c "SELECT count(*) FROM events"' },
+        { ok: true, text: 'Synced 1,247 new records' },
+        { tag: '&lt;write&gt;', text: 'workspace/sync-state.json' },
+        { dim: 'Stopped by operator' }
+      ]
+    };
+
+    // Streaming log entries for code-reviewer
+    var streamEntries = [
+      { tag: '&lt;bash&gt;', text: 'gh pr list --state open --json number,title' },
+      { ok: true, text: 'Found 3 open pull requests' },
+      { tag: '&lt;bash&gt;', text: 'gh pr diff 49 | head -300' },
+      { text: 'Reading changes in src/auth/middleware.go...' },
+      { text: 'Analyzing error handling patterns...' },
+      { tag: '&lt;write&gt;', text: 'workspace/reviews/pr-49.md' },
+      { ok: true, text: 'Review complete, 2 suggestions posted' },
+      { dim: 'Sleeping for 60s...', sleep: true },
+      { time: '[run #10]', ts: '2026-02-12 11:46:08' },
+      { tag: '&lt;bash&gt;', text: 'gh pr diff 50 | head -300' },
+      { ok: true, text: 'Loaded PR #50: "Add rate limiting to API"' },
+      { text: 'Checking for race conditions...' },
+      { tag: '&lt;bash&gt;', text: 'go vet ./internal/ratelimit/...' },
+      { ok: true, text: 'No issues found' },
+      { tag: '&lt;write&gt;', text: 'workspace/reviews/pr-50.md' },
+      { ok: true, text: 'Review complete, approved with comments' },
+      { dim: 'Sleeping for 60s...', sleep: true },
+      { time: '[run #11]', ts: '2026-02-12 11:47:14' },
+      { tag: '&lt;bash&gt;', text: 'gh pr list --state open --json number' },
+      { ok: true, text: 'Found 2 open pull requests' },
+      { tag: '&lt;bash&gt;', text: 'gh pr diff 51 | head -400' },
+      { text: 'Reviewing database migration changes...' },
+      { tag: '&lt;bash&gt;', text: 'go test ./internal/db/...' },
+      { ok: true, text: 'All tests passing' },
+      { tag: '&lt;write&gt;', text: 'workspace/reviews/pr-51.md' },
+      { ok: true, text: 'Review complete, 1 suggestion' },
+      { dim: 'Sleeping for 60s...', sleep: true }
+    ];
+    var streamIdx = 0;
+    var streamTimer = null;
+    var maxLogLines = 16;
+
+    function statusIcon(s) {
+      if (s === 'running') return '<span class="tui-bot-status is-running">&#9679; running</span>';
+      if (s === 'sleeping') return '<span class="tui-bot-status is-sleeping">&#9679; sleeping</span>';
+      return '<span class="tui-bot-status is-stopped">&#9675; stopped</span>';
+    }
+
+    function runningCount() {
+      return bots.filter(function(b) { return b.status !== 'stopped'; }).length;
+    }
+
+    function renderBotRows() {
+      var container = tui.querySelector('.tui-bots');
+      var rows = container.querySelectorAll('.tui-bot-row');
+      rows.forEach(function(r) { r.remove(); });
+      bots.forEach(function(bot, i) {
+        var row = document.createElement('div');
+        row.className = 'tui-bot-row' + (i === selectedIdx ? ' selected' : '');
+        row.dataset.idx = i;
+        row.innerHTML =
+          '<span class="tui-bot-name">' + bot.name + '</span>' +
+          statusIcon(bot.status) +
+          '<span class="tui-bot-runs">' + bot.runs + '</span>' +
+          '<span class="tui-bot-cost">' + bot.cost + '</span>';
+        container.appendChild(row);
+      });
+      document.getElementById('tui-count').textContent = runningCount() + '/' + bots.length + ' active';
+      var total = bots.reduce(function(s, b) { return s + parseFloat(b.cost.replace('$', '')); }, 0);
+      document.getElementById('tui-cost').textContent = '$' + total.toFixed(2);
+    }
+
+    function renderLogEntry(l) {
+      if (l.time) return '<div class="tui-log-entry"><span class="tui-log-time">' + l.time + '</span> ' + l.ts + '</div>';
+      if (l.tag) return '<div class="tui-log-entry"><span class="tui-log-tag">' + l.tag + '</span> ' + l.text + '</div>';
+      if (l.ok) return '<div class="tui-log-entry"><span class="tui-log-ok">&#10003;</span> <span class="tui-log-text">' + l.text + '</span></div>';
+      if (l.dim) return '<div class="tui-log-entry"><span class="tui-log-dim">' + l.dim + '</span></div>';
+      return '<div class="tui-log-entry"><span class="tui-log-text">' + l.text + '</span></div>';
+    }
+
+    function renderLogs() {
+      var bot = bots[selectedIdx];
+      var logs = botLogs[bot.name] || [];
+      document.getElementById('tui-logs-name').textContent = bot.name;
+      document.getElementById('tui-logs-body').innerHTML = logs.map(renderLogEntry).join('');
+      var body = document.getElementById('tui-logs-body');
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function updateFooter() {
+      var bot = bots[selectedIdx];
+      var isActive = bot.status !== 'stopped';
+      document.getElementById('tui-s-label').textContent = isActive ? 'stop' : 'start';
+      document.getElementById('tui-key-m').classList.toggle('dimmed', !isActive);
+    }
+
+    function selectBot(idx) {
+      selectedIdx = idx;
+      renderBotRows();
+      renderLogs();
+      updateFooter();
+    }
+
+    // Stream logs for code-reviewer
+    function startStreaming() {
+      stopStreaming();
+      streamTimer = setInterval(function() {
+        var bot = bots[1]; // code-reviewer
+        if (bot.status === 'stopped') { stopStreaming(); return; }
+        var entry = streamEntries[streamIdx % streamEntries.length];
+        // Sleep entry: show the line, pause for 60s, then resume
+        if (entry.sleep) {
+          botLogs['code-reviewer'].push(entry);
+          if (botLogs['code-reviewer'].length > maxLogLines) botLogs['code-reviewer'].shift();
+          bot.status = 'sleeping';
+          bot.runs++;
+          renderBotRows();
+          updateFooter();
+          if (selectedIdx === 1) renderLogs();
+          stopStreaming();
+          streamIdx++;
+          setTimeout(function() {
+            if (bot.status === 'sleeping') {
+              bot.status = 'running';
+              renderBotRows();
+              updateFooter();
+              startStreaming();
+            }
+          }, 60000);
+          return;
+        }
+        botLogs['code-reviewer'].push(entry);
+        if (botLogs['code-reviewer'].length > maxLogLines) botLogs['code-reviewer'].shift();
+        // Bump cost on tool calls
+        if (entry.tag || entry.ok) {
+          var c = parseFloat(bot.cost.replace('$', ''));
+          c += 0.02 + Math.random() * 0.03;
+          bot.cost = '$' + c.toFixed(2);
+          renderBotRows();
+        }
+        if (selectedIdx === 1) renderLogs();
+        streamIdx++;
+      }, 900);
+    }
+
+    function stopStreaming() {
+      if (streamTimer) { clearInterval(streamTimer); streamTimer = null; }
+    }
+
+    // Click bot rows (delegated)
+    tui.addEventListener('click', function(e) {
+      var row = e.target.closest('.tui-bot-row');
+      if (row && row.dataset.idx !== undefined) {
+        selectBot(parseInt(row.dataset.idx, 10));
+      }
+    });
+
+    // s = start/stop selected bot
+    document.getElementById('tui-key-s').addEventListener('click', function() {
+      var bot = bots[selectedIdx];
+      var logs = botLogs[bot.name];
+      if (bot.status !== 'stopped') {
+        // Stop
+        bot.status = 'stopped';
+        if (bot.name === 'code-reviewer') stopStreaming();
+        if (logs.length && logs[logs.length - 1].dim) logs.pop();
+        logs.push({ dim: 'Stopped by operator' });
+      } else {
+        // Start
+        bot.status = 'running';
+        if (logs.length && logs[logs.length - 1].dim) logs.pop();
+        logs.push({ dim: 'Starting harness loop...' });
+        if (bot.name === 'code-reviewer') {
+          setTimeout(function() {
+            if (bot.status !== 'stopped') startStreaming();
+          }, 800);
+        } else {
+          setTimeout(function() {
+            if (bot.status === 'running') {
+              bot.status = 'sleeping';
+              var l = botLogs[bot.name];
+              if (l.length && l[l.length - 1].dim) l.pop();
+              l.push({ dim: 'Sleeping for ' + (bot.name === 'weather-bot' ? '300' : '60') + 's...' });
+              renderBotRows();
+              if (bots[selectedIdx].name === bot.name) renderLogs();
+              updateFooter();
+            }
+          }, 1500);
+        }
+      }
+      renderBotRows();
+      renderLogs();
+      updateFooter();
+    });
+
+    // m = message (only when active)
+    document.getElementById('tui-key-m').addEventListener('click', function() {
+      var bot = bots[selectedIdx];
+      if (bot.status === 'stopped') return;
+      var msg = document.getElementById('tui-msg');
+      msg.classList.add('visible');
+      if (bot.name === 'code-reviewer') stopStreaming();
+      setTimeout(function() {
+        msg.classList.remove('visible');
+        botLogs[bot.name].push({ ok: true, text: 'Message received, waking bot...' });
+        if (bots[selectedIdx].name === bot.name) renderLogs();
+        if (bot.name === 'code-reviewer' && bot.status !== 'stopped') {
+          setTimeout(function() { startStreaming(); }, 600);
+        }
+      }, 1800);
+    });
+
+    // q = quit to shell
+    var shellActive = false;
+    var cmdBuffer = '';
+    var shellEl = document.getElementById('hero-shell');
+    var shellHistory = document.getElementById('shell-history');
+    var shellInput = document.getElementById('shell-input');
+
+    function enterShell() {
+      stopStreaming();
+      tui.style.display = 'none';
+      shellEl.style.display = 'block';
+      shellActive = true;
+      cmdBuffer = '';
+      shellInput.textContent = '';
+      shellEl.focus();
+    }
+
+    function exitShell() {
+      shellActive = false;
+      shellEl.style.display = 'none';
+      shellHistory.innerHTML = '';
+      tui.style.display = '';
+      // Reset code-reviewer and restart
+      bots[1].status = 'running';
+      renderBotRows();
+      renderLogs();
+      updateFooter();
+      startStreaming();
+    }
+
+    function shellExec(cmd) {
+      // Add command to history
+      var line = '<div><span class="shell-old-prompt">$</span> <span class="shell-old-cmd">' + escHtml(cmd) + '</span></div>';
+      var output = '';
+
+      var parts = cmd.trim().split(/\s+/);
+      var base = parts[0];
+
+      if (cmd.trim() === '') {
+        shellHistory.innerHTML += line;
+      } else if (base === 'botctl') {
+        shellHistory.innerHTML += line;
+        shellHistory.innerHTML += '<div class="shell-output">Launching dashboard...</div>';
+        setTimeout(exitShell, 600);
+        return;
+      } else if (base === 'ls') {
+        output = '<div class="shell-output">BOT.md        boot.log      logs/         skills/       workspace/</div>';
+      } else if (base === 'pwd') {
+        output = '<div class="shell-output">/Users/you/.botctl/bots/weather-bot</div>';
+      } else if (base === 'whoami') {
+        output = '<div class="shell-fun">botctl operator (root access to all bots)</div>';
+      } else if (base === 'cat' && cmd.indexOf('BOT.md') !== -1) {
+        output = '<div class="shell-output">---\nname: weather-bot\ninterval_seconds: 300\nmax_turns: 20\n---\nYou are an autonomous weather monitor...</div>';
+      } else if (base === 'clear') {
+        shellHistory.innerHTML = '';
+        return;
+      } else if (base === 'help') {
+        output = '<div class="shell-output">Available: botctl, ls, pwd, cat BOT.md, whoami, clear, exit</div>';
+      } else if (base === 'exit') {
+        output = '<div class="shell-fun">Where would you go? Run botctl.</div>';
+      } else if (cmd.indexOf('rm') !== -1 && cmd.indexOf('-rf') !== -1) {
+        output = '<div class="shell-fun">Nice try. The bots are watching.</div>';
+      } else if (base === 'sudo') {
+        output = '<div class="shell-fun">You already control the bots. What more power do you need?</div>';
+      } else if (base === 'vim' || base === 'nano' || base === 'emacs') {
+        output = '<div class="shell-fun">Just run botctl. The bots will write the code for you.</div>';
+      } else if (base === 'curl' || base === 'wget') {
+        output = '<div class="shell-fun">The bots handle the networking. Run botctl.</div>';
+      } else if (base === 'python' || base === 'node' || base === 'ruby') {
+        output = '<div class="shell-fun">This is a Go household. Run botctl.</div>';
+      } else if (base === 'docker') {
+        output = '<div class="shell-fun">No containers needed. It\'s a single binary.</div>';
+      } else {
+        output = '<div class="shell-error">' + escHtml(base) + ': command not found</div>';
+      }
+
+      shellHistory.innerHTML += line + output;
+      shellEl.scrollTop = shellEl.scrollHeight;
+    }
+
+    function escHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    document.getElementById('tui-key-q').addEventListener('click', enterShell);
+
+    // Keyboard shortcuts for TUI (s/m/q keys)
+    document.addEventListener('keydown', function(e) {
+      if (shellActive) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      var tui = document.getElementById('hero-tui');
+      if (!tui || tui.style.display === 'none') return;
+      if (e.key === 's') { document.getElementById('tui-key-s').click(); }
+      else if (e.key === 'm') { document.getElementById('tui-key-m').click(); }
+      else if (e.key === 'q') { document.getElementById('tui-key-q').click(); }
+    });
+
+    shellEl.addEventListener('keydown', function(e) {
+      if (!shellActive) return;
+      e.preventDefault();
+      if (e.key === 'Enter') {
+        shellExec(cmdBuffer);
+        cmdBuffer = '';
+        shellInput.textContent = '';
+      } else if (e.key === 'Backspace') {
+        cmdBuffer = cmdBuffer.slice(0, -1);
+        shellInput.textContent = cmdBuffer;
+      } else if (e.key === 'Tab') {
+        // Autocomplete botctl
+        if ('botctl'.indexOf(cmdBuffer) === 0 && cmdBuffer.length > 0) {
+          cmdBuffer = 'botctl';
+          shellInput.textContent = cmdBuffer;
+        }
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        cmdBuffer += e.key;
+        shellInput.textContent = cmdBuffer;
+      }
+    });
+
+    // Initial render + start streaming
+    renderBotRows();
+    renderLogs();
+    updateFooter();
+    startStreaming();
+  }
+
+  // ── Tab switching ──────────────────────────
+  document.querySelectorAll('.tabs').forEach(function(tabGroup) {
+    tabGroup.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tabName = this.dataset.tab;
+        tabGroup.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        tabGroup.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        this.classList.add('active');
+        tabGroup.querySelector('[data-tab-panel="' + tabName + '"]').classList.add('active');
+      });
+    });
+  });
+
+  window.copyActiveTab = function(btn) {
+    var tabs = btn.closest('.tabs');
+    var activePanel = tabs.querySelector('.tab-panel.active');
+    navigator.clipboard.writeText(activePanel.textContent.trim());
+    showTooltip(btn);
+  };
+})();
+</script>
+</body>
+</html>

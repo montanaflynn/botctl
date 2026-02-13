@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docs — botctl</title>
+<meta name="description" content="Documentation for botctl — CLI reference, BOT.md config, TUI keybindings, Web UI, and file layout.">
+<link rel="canonical" href="https://botctl.dev/docs" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="Docs — botctl" />
+<meta property="og:description" content="Documentation for botctl — CLI reference, BOT.md config, TUI keybindings, Web UI, and file layout." />
+<meta property="og:url" content="https://botctl.dev/docs" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="/og-image.png" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Docs — botctl" />
+<meta name="twitter:description" content="Documentation for botctl — CLI reference, BOT.md config, TUI keybindings, Web UI, and file layout." />
+<meta name="twitter:image" content="/og-image.png" />
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text x='2' y='26' font-family='monospace' font-size='28' fill='%2300ff41'>$_</text></svg>" />
+<link rel="apple-touch-icon" href="/og-image.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08080c;
+  --bg-surface: #111116;
+  --bg-card: #16161c;
+  --bg-card-hover: #1c1c24;
+  --border: #24242e;
+  --border-light: #32323e;
+  --green: #3fb950;
+  --green-dim: rgba(63, 185, 80, 0.12);
+  --amber: #d29922;
+  --amber-dim: rgba(210, 153, 34, 0.12);
+  --blue: #58a6ff;
+  --purple: #bc8cff;
+  --red: #f85149;
+  --text: #e6edf3;
+  --text-secondary: #b0b8c1;
+  --text-dim: #7d8590;
+  --text-muted: #484f58;
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--green) 50%, transparent 100%);
+  z-index: 1001;
+  opacity: 0.6;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--text);
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+h1 { font-size: 2.2rem; font-weight: 800; }
+h2 { font-size: 1.6rem; margin-bottom: 24px; }
+h3 { font-size: 1.1rem; margin-bottom: 12px; }
+
+a { color: var(--text); text-decoration: none; transition: opacity 0.2s; }
+a:hover { opacity: 0.8; }
+
+code, .mono { font-family: var(--font-mono); }
+
+code {
+  background: var(--bg-card);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: var(--text);
+}
+
+/* ── Nav ─────────────────────────────────── */
+
+nav {
+  position: fixed;
+  top: 1px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 0 24px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(8, 8, 12, 0.9);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.nav-logo {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 1.5px;
+}
+
+.nav-logo .nav-prompt { color: var(--text-dim); font-weight: 400; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.nav-links a:hover { color: var(--text); opacity: 1; }
+
+/* ── Layout ──────────────────────────────── */
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 88px 24px 80px;
+  gap: 64px;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ─────────────────────────────── */
+
+.sidebar {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 28px;
+}
+
+.sidebar-heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.sidebar-link {
+  display: block;
+  font-size: 14px;
+  color: var(--text-dim);
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.sidebar-link:hover { color: var(--text); opacity: 1; }
+.sidebar-link.active { color: var(--text); }
+
+/* ── Content ─────────────────────────────── */
+
+.docs-content {
+  min-width: 0;
+}
+
+.docs-section {
+  padding-bottom: 64px;
+  margin-bottom: 64px;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.docs-section p {
+  margin-bottom: 16px;
+  line-height: 1.7;
+}
+
+.docs-section ul, .docs-section ol {
+  margin-bottom: 16px;
+  padding-left: 24px;
+}
+
+.docs-section li {
+  margin-bottom: 6px;
+  line-height: 1.6;
+}
+
+/* ── Tables ──────────────────────────────── */
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0 24px;
+  font-size: 14px;
+}
+
+.docs-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.docs-table td:first-child {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.docs-table td:last-child {
+  color: var(--text-dim);
+}
+
+.docs-table tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+/* ── Code blocks ─────────────────────────── */
+
+.code-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 16px 0 24px;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.code-body {
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.code-body .cmd { color: var(--text); }
+.code-body .comment { color: var(--text-muted); }
+.code-body .str { color: var(--green); }
+.code-body .key { color: var(--blue); }
+.code-body .num { color: var(--amber); }
+.code-body .flag { color: var(--purple); }
+
+/* ── Key badges ──────────────────────────── */
+
+.key-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin: 16px 0 24px;
+}
+
+.key-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+
+.key-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--amber);
+  background: var(--amber-dim);
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.key-label {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* ── Section label ───────────────────────── */
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.section-label::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex-shrink: 0;
+}
+
+/* ── Footer ──────────────────────────────── */
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 24px;
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-logo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: var(--text-dim); }
+
+/* ── Responsive ──────────────────────────── */
+
+@media (max-width: 768px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .sidebar {
+    position: static;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 40px;
+    max-height: none;
+  }
+  .nav-links { display: none; }
+  .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-prompt">$</span> botctl</a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/docs" style="color: var(--text);">Docs</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="docs-layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Getting Started</div>
+      <a href="#overview" class="sidebar-link">Overview</a>
+      <a href="#install" class="sidebar-link">Installation</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Configuration</div>
+      <a href="#botmd" class="sidebar-link">BOT.md</a>
+      <a href="#frontmatter" class="sidebar-link">Frontmatter Fields</a>
+      <a href="#skills" class="sidebar-link">Skills</a>
+      <a href="#workspaces" class="sidebar-link">Workspaces</a>
+      <a href="#env" class="sidebar-link">Environment</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Interfaces</div>
+      <a href="#cli" class="sidebar-link">CLI</a>
+      <a href="#tui" class="sidebar-link">TUI Dashboard</a>
+      <a href="#web" class="sidebar-link">Web Dashboard</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Reference</div>
+      <a href="#harness" class="sidebar-link">Harness Loop</a>
+      <a href="#sessions" class="sidebar-link">Sessions &amp; Resume</a>
+      <a href="#database" class="sidebar-link">Database</a>
+      <a href="#files" class="sidebar-link">File Layout</a>
+    </div>
+  </aside>
+
+  <main class="docs-content">
+
+    <!-- Overview -->
+    <section class="docs-section" id="overview">
+      <div class="section-label">Overview</div>
+      <p><code>botctl</code> is a process manager for autonomous AI bots. Each bot is defined by a single <code>BOT.md</code> file — YAML config and a markdown prompt. The harness runs each bot in a loop: execute, log, sleep, repeat. No servers, no infrastructure, just a Go binary.</p>
+      <p>Bots persist across runs with session memory. You can send messages, resume sessions, and monitor everything from a TUI, web dashboard, or CLI.</p>
+    </section>
+
+    <!-- Installation -->
+    <section class="docs-section" id="install">
+      <div class="section-label">Installation</div>
+      <h3>macOS / Linux</h3>
+      <div class="code-block">
+        <div class="code-header">shell</div>
+        <div class="code-body"><span class="str">$</span> curl -fsSL https://botctl.dev/install.sh | sh</div>
+      </div>
+      <h3>Windows (PowerShell)</h3>
+      <div class="code-block">
+        <div class="code-header">powershell</div>
+        <div class="code-body"><span class="str">&gt;</span> irm https://botctl.dev/install.ps1 | iex</div>
+      </div>
+      <h3>Go</h3>
+      <div class="code-block">
+        <div class="code-header">shell</div>
+        <div class="code-body"><span class="str">$</span> go install github.com/montanaflynn/botctl@latest</div>
+      </div>
+      <p>Pre-built binaries for macOS, Linux, and Windows are on the <a href="https://github.com/montanaflynn/botctl/releases" target="_blank" rel="noopener" style="color: var(--green);">releases page</a>.</p>
+    </section>
+
+    <!-- BOT.md -->
+    <section class="docs-section" id="botmd">
+      <div class="section-label">BOT.md</div>
+      <p>Each bot lives at <code>~/.botctl/bots/{name}/</code> and is defined by a <code>BOT.md</code> file. YAML frontmatter sets the config, the markdown body is the bot's prompt.</p>
+      <div class="code-block">
+        <div class="code-header">BOT.md</div>
+        <div class="code-body"><span class="comment">---</span>
+<span class="key">name</span>: <span class="str">weather-bot</span>
+<span class="key">id</span>: <span class="str">weather-001</span>
+<span class="key">interval_seconds</span>: <span class="num">300</span>
+<span class="key">max_turns</span>: <span class="num">20</span>
+<span class="key">workspace</span>: <span class="str">local</span>
+<span class="key">skills_dir</span>: <span class="str">./skills</span>
+<span class="key">log_retention</span>: <span class="num">30</span>
+<span class="key">env</span>:
+  <span class="key">API_KEY</span>: <span class="str">${WEATHER_API_KEY}</span>
+<span class="comment">---</span>
+
+<span class="cmd"># Weather Monitor</span>
+
+You are an autonomous agent that monitors
+weather APIs and alerts on severe storms.
+
+<span class="cmd">## Steps</span>
+
+- Check api.weather.gov for active alerts
+- Compare against previous state
+- Write summary to workspace/alerts.json
+- Log any new severe weather events</div>
+      </div>
+      <p>The markdown body becomes the bot's system prompt. Claude sees it every run along with workspace path, skills, and turn limit. Edit the file and changes take effect on the next run — no restart needed.</p>
+    </section>
+
+    <!-- Frontmatter -->
+    <section class="docs-section" id="frontmatter">
+      <div class="section-label">Frontmatter Fields</div>
+      <table class="docs-table">
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>name</td><td>string</td><td>Display name for the bot (required)</td></tr>
+          <tr><td>id</td><td>string</td><td>Stable database key — survives folder renames. Defaults to folder name.</td></tr>
+          <tr><td>interval_seconds</td><td>int</td><td>Seconds between runs. Default: 60</td></tr>
+          <tr><td>max_turns</td><td>int</td><td>Turn limit per run. 0 = unlimited. When hit, the session is saved for resume.</td></tr>
+          <tr><td>workspace</td><td>string</td><td><code>local</code> (per-bot) or <code>shared</code> (global). Default: local</td></tr>
+          <tr><td>skills_dir</td><td>string</td><td>Relative path to skill markdown files</td></tr>
+          <tr><td>log_dir</td><td>string</td><td>Custom log directory. Default: logs/</td></tr>
+          <tr><td>log_retention</td><td>int</td><td>Number of run logs to keep before pruning. Default: 30</td></tr>
+          <tr><td>env</td><td>map</td><td>Environment variables. Supports <code>${VAR}</code> references to system env.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Skills -->
+    <section class="docs-section" id="skills">
+      <div class="section-label">Skills</div>
+      <p>Skills are markdown files in the bot's <code>skills_dir</code>. The harness tells Claude to read every file in the directory. Each skill is an instruction set the bot follows.</p>
+      <div class="code-block">
+        <div class="code-header">file structure</div>
+        <div class="code-body"><span class="str">my-bot/</span>
+  BOT.md
+  <span class="str">skills/</span>
+    api-access.md
+    safety-rules.md
+  <span class="str">workspace/</span>
+    state.json</div>
+      </div>
+      <p>Skills are reloaded every run, so you can add, edit, or remove them without restarting the bot.</p>
+    </section>
+
+    <!-- Workspaces -->
+    <section class="docs-section" id="workspaces">
+      <div class="section-label">Workspaces</div>
+      <ul>
+        <li><strong>Local</strong> (<code>workspace: local</code>) — <code>~/.botctl/bots/{name}/workspace/</code> — private to this bot</li>
+        <li><strong>Shared</strong> (<code>workspace: shared</code>) — <code>~/.botctl/workspace/</code> — shared across all bots that opt in</li>
+      </ul>
+      <p>Claude's working directory is set to the workspace. All file operations happen there by default.</p>
+    </section>
+
+    <!-- Environment -->
+    <section class="docs-section" id="env">
+      <div class="section-label">Environment</div>
+      <p>The <code>env</code> field in BOT.md sets environment variables for the bot process. Values support <code>${VAR}</code> references that resolve against system environment variables.</p>
+      <div class="code-block">
+        <div class="code-header">BOT.md frontmatter</div>
+        <div class="code-body"><span class="key">env</span>:
+  <span class="key">API_KEY</span>: <span class="str">${WEATHER_API_KEY}</span>
+  <span class="key">LOG_LEVEL</span>: <span class="str">debug</span></div>
+      </div>
+      <p>Set <code>MM_HOME</code> to override the default <code>~/.botctl</code> directory.</p>
+    </section>
+
+    <!-- CLI -->
+    <section class="docs-section" id="cli">
+      <div class="section-label">CLI Reference</div>
+      <table class="docs-table">
+        <thead>
+          <tr><th>Command</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>botctl</td><td>Open the TUI dashboard (<code>--web-ui</code> for web, <code>--port</code> to set port)</td></tr>
+          <tr><td>botctl create [name]</td><td>Create a new bot via Claude (<code>-d</code> description, <code>-i</code> interval, <code>-m</code> max turns)</td></tr>
+          <tr><td>botctl start [name]</td><td>Start a bot (<code>-d</code> detach, <code>-m</code> message, <code>--once</code> single run)</td></tr>
+          <tr><td>botctl stop [name]</td><td>Stop a bot (no args = stop all)</td></tr>
+          <tr><td>botctl list</td><td>List all bots with status</td></tr>
+          <tr><td>botctl status</td><td>Detailed status of all bots</td></tr>
+          <tr><td>botctl logs [name]</td><td>View logs (<code>-n</code> lines, <code>-f</code> follow)</td></tr>
+          <tr><td>botctl delete &lt;name&gt;</td><td>Delete a bot and its data (<code>-y</code> skip confirmation)</td></tr>
+          <tr><td>botctl update</td><td>Self-update to the latest release</td></tr>
+          <tr><td>botctl --version</td><td>Show version and commit hash</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- TUI -->
+    <section class="docs-section" id="tui">
+      <div class="section-label">TUI Dashboard</div>
+      <p>Run <code>botctl</code> with no arguments to open the terminal dashboard. Two-pane layout: bot list on the left, streaming logs on the right.</p>
+      <h3>Keybindings</h3>
+      <div class="key-grid">
+        <div class="key-item"><span class="key-badge">s</span><span class="key-label">Start / stop bot</span></div>
+        <div class="key-item"><span class="key-badge">r</span><span class="key-label">Resume session</span></div>
+        <div class="key-item"><span class="key-badge">m</span><span class="key-label">Send message</span></div>
+        <div class="key-item"><span class="key-badge">enter</span><span class="key-label">Send message</span></div>
+        <div class="key-item"><span class="key-badge">n</span><span class="key-label">Create new bot</span></div>
+        <div class="key-item"><span class="key-badge">c</span><span class="key-label">Clear logs / runs</span></div>
+        <div class="key-item"><span class="key-badge">d</span><span class="key-label">Delete bot</span></div>
+        <div class="key-item"><span class="key-badge">o</span><span class="key-label">Open bot directory</span></div>
+        <div class="key-item"><span class="key-badge">f / tab</span><span class="key-label">Filter bots</span></div>
+        <div class="key-item"><span class="key-badge">j / k</span><span class="key-label">Navigate list</span></div>
+        <div class="key-item"><span class="key-badge">q</span><span class="key-label">Quit</span></div>
+      </div>
+      <p style="font-size: 14px; color: var(--text-dim); margin-top: 8px;"><strong>Tip:</strong> To select text in the TUI, hold Option (macOS) or Shift (other terminals) while clicking and dragging.</p>
+    </section>
+
+    <!-- Web -->
+    <section class="docs-section" id="web">
+      <div class="section-label">Web Dashboard</div>
+      <div class="code-block">
+        <div class="code-header">shell</div>
+        <div class="code-body"><span class="str">$</span> botctl <span class="flag">--web-ui</span>              <span class="comment"># default port 4444</span>
+<span class="str">$</span> botctl <span class="flag">--web-ui --port</span> <span class="num">8080</span>  <span class="comment"># custom port</span></div>
+      </div>
+      <p>Browser-based dashboard with the same capabilities as the TUI. Real-time log streaming via Server-Sent Events (SSE). Accessible from any device on your network.</p>
+      <h3>API Endpoints</h3>
+      <table class="docs-table">
+        <thead>
+          <tr><th>Endpoint</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>GET /api/bots</td><td>List all bots with status and stats</td></tr>
+          <tr><td>POST /api/bots/{name}/start</td><td>Start a bot</td></tr>
+          <tr><td>POST /api/bots/{name}/stop</td><td>Stop a bot</td></tr>
+          <tr><td>POST /api/bots/{name}/message</td><td>Send a message to a running bot</td></tr>
+          <tr><td>GET /api/bots/{name}/logs</td><td>Get log entries</td></tr>
+          <tr><td>GET /api/bots/{name}/logs/stream</td><td>SSE stream of log entries</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Harness -->
+    <section class="docs-section" id="harness">
+      <div class="section-label">Harness Loop</div>
+      <p>The harness is the background process that executes each bot. It runs a continuous loop:</p>
+      <ol>
+        <li>Reload <code>BOT.md</code> config from disk</li>
+        <li>Check the pending message queue</li>
+        <li>Execute Claude with the bot's prompt, tools, and workspace</li>
+        <li>Record stats (cost, turns, session ID) to the database</li>
+        <li>Write structured log entries</li>
+        <li>Sleep for <code>interval_seconds</code> (woken early by messages or resume signals)</li>
+      </ol>
+      <p>Config is reloaded every iteration, so changes to <code>BOT.md</code> take effect on the next run without restarting the harness.</p>
+    </section>
+
+    <!-- Sessions -->
+    <section class="docs-section" id="sessions">
+      <div class="section-label">Sessions &amp; Resume</div>
+      <p>When a run hits <code>max_turns</code>, the session ID is saved in the database. You can resume from exactly where Claude left off:</p>
+      <ul>
+        <li>Press <code>r</code> in the TUI — opens an input pre-filled with the current <code>max_turns</code>. Edit the number and press enter.</li>
+        <li>The harness detects the resume signal, applies the new turn limit, and calls Claude with the saved session ID.</li>
+      </ul>
+      <p>Messages sent to a running bot (via <code>m</code> in the TUI or <code>botctl start --message</code>) wake the harness early via SIGUSR1.</p>
+    </section>
+
+    <!-- Database -->
+    <section class="docs-section" id="database">
+      <div class="section-label">Database</div>
+      <p>SQLite at <code>~/.botctl/botctl.db</code> with WAL mode. Stores:</p>
+      <table class="docs-table">
+        <thead>
+          <tr><th>Table</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>runs</td><td>Execution history — duration, cost, turns, session ID, log file</td></tr>
+          <tr><td>pids</td><td>Active process tracking (bot name, PID, started_at)</td></tr>
+          <tr><td>messages</td><td>Raw Claude API response JSON per run</td></tr>
+          <tr><td>pending_messages</td><td>Message queue for operator-to-bot communication</td></tr>
+          <tr><td>log_entries</td><td>Structured log records (bot_id, run_id, kind, heading, body)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- File Layout -->
+    <section class="docs-section" id="files">
+      <div class="section-label">File Layout</div>
+      <div class="code-block">
+        <div class="code-header">~/.botctl/</div>
+        <div class="code-body"><span class="cmd">botctl.db</span>                    <span class="comment"># SQLite (WAL mode)</span>
+<span class="cmd">workspace/</span>                   <span class="comment"># Shared workspace</span>
+<span class="cmd">bots/</span>
+  <span class="str">my-bot/</span>
+    <span class="key">BOT.md</span>                   <span class="comment"># Config + prompt</span>
+    <span class="str">skills/</span>                  <span class="comment"># Skill files</span>
+      api-access.md
+      safety-rules.md
+    <span class="str">workspace/</span>               <span class="comment"># Local workspace</span>
+    <span class="str">logs/</span>
+      20260208-142305.log    <span class="comment"># Per-run logs</span>
+      boot.log               <span class="comment"># Harness startup</span></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">BOTCTL</div>
+    <ul class="footer-links">
+      <li><a href="/docs">Docs</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+// Highlight active sidebar link on scroll
+(function() {
+  var links = document.querySelectorAll('.sidebar-link');
+  var sections = [];
+  links.forEach(function(link) {
+    var id = link.getAttribute('href').replace('#', '');
+    var el = document.getElementById(id);
+    if (el) sections.push({ id: id, el: el, link: link });
+  });
+
+  function update() {
+    var scrollY = window.scrollY + 120;
+    var active = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].el.offsetTop <= scrollY) active = sections[i];
+    }
+    links.forEach(function(l) { l.classList.remove('active'); });
+    if (active) active.link.classList.add('active');
+  }
+
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() { update(); ticking = false; });
+      ticking = true;
+    }
+  });
+  update();
+})();
+</script>
+</body>
+</html>
