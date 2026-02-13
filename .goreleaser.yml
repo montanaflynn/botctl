@@ -23,7 +23,7 @@ archives:
 changelog:
   sort: asc
   use: github
-  format: "{{ .SHA }} {{ .Message }} (@{{ .AuthorUsername }})"
+  format: "[`{{ .SHA }}`](https://github.com/montanaflynn/botctl/commit/{{ .SHA }}) {{ .Message }}"
   abbrev: 7
   groups:
     - title: Features
