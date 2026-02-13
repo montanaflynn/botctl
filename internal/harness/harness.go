@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/montanaflynn/botctl-go/internal/config"
-	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/logs"
-	"github.com/montanaflynn/botctl-go/internal/paths"
+	"github.com/montanaflynn/botctl/internal/config"
+	"github.com/montanaflynn/botctl/internal/db"
+	"github.com/montanaflynn/botctl/internal/logs"
+	"github.com/montanaflynn/botctl/internal/paths"
 	claude "github.com/montanaflynn/claude-agent-sdk-go"
 )
 

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/montanaflynn/botctl-go/internal/create"
+	"github.com/montanaflynn/botctl/internal/create"
 	"github.com/spf13/cobra"
 )
 

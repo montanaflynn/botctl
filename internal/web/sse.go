@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/montanaflynn/botctl-go/internal/service"
+	"github.com/montanaflynn/botctl/internal/service"
 )
 
 func (h *handler) streamBotLogs(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,7 @@ package logs
 import (
 	"strings"
 
-	"github.com/montanaflynn/botctl-go/internal/db"
+	"github.com/montanaflynn/botctl/internal/db"
 )
 
 // RenderEntry converts a LogEntry into display lines.

@@ -1,4 +1,4 @@
-module github.com/montanaflynn/botctl-go
+module github.com/montanaflynn/botctl
 
 go 1.25.5
 

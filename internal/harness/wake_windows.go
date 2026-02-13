@@ -8,7 +8,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/montanaflynn/botctl-go/internal/db"
+	"github.com/montanaflynn/botctl/internal/db"
 )
 
 var (

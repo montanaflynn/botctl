@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"github.com/montanaflynn/botctl-go/internal/service"
+	"github.com/montanaflynn/botctl/internal/service"
 )
 
 const maxLogLines = 2000

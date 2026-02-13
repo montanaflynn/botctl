@@ -14,10 +14,10 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/montanaflynn/botctl-go/internal/config"
-	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/process"
-	"github.com/montanaflynn/botctl-go/internal/service"
+	"github.com/montanaflynn/botctl/internal/config"
+	"github.com/montanaflynn/botctl/internal/db"
+	"github.com/montanaflynn/botctl/internal/process"
+	"github.com/montanaflynn/botctl/internal/service"
 )
 
 // Version is set by the CLI package before launching.

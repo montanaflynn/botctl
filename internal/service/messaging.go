@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/montanaflynn/botctl-go/internal/process"
+	"github.com/montanaflynn/botctl/internal/process"
 )
 
 // SendMessage enqueues a message for a bot and wakes it (or starts it if stopped).

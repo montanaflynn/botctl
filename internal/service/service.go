@@ -3,8 +3,8 @@ package service
 import (
 	"errors"
 
-	"github.com/montanaflynn/botctl-go/internal/config"
-	"github.com/montanaflynn/botctl-go/internal/db"
+	"github.com/montanaflynn/botctl/internal/config"
+	"github.com/montanaflynn/botctl/internal/db"
 )
 
 // Service encapsulates all bot operations, providing a shared business logic

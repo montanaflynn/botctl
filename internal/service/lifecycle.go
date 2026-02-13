@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/montanaflynn/botctl-go/internal/process"
+	"github.com/montanaflynn/botctl/internal/process"
 )
 
 // StartBot finds a bot by name and starts it. Returns the PID.

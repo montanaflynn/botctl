@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/montanaflynn/botctl-go/internal/service"
-	"github.com/montanaflynn/botctl-go/internal/tui"
+	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/internal/tui"
 	"github.com/spf13/cobra"
 )
 

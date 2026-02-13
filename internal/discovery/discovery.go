@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/montanaflynn/botctl-go/internal/config"
-	"github.com/montanaflynn/botctl-go/internal/paths"
+	"github.com/montanaflynn/botctl/internal/config"
+	"github.com/montanaflynn/botctl/internal/paths"
 )
 
 // Bot represents a discovered bot with its config.

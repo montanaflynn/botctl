@@ -1,7 +1,7 @@
 package logs
 
 import (
-	"github.com/montanaflynn/botctl-go/internal/db"
+	"github.com/montanaflynn/botctl/internal/db"
 )
 
 // RecentLines returns rendered lines from a bot's recent log entries.

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/paths"
-	"github.com/montanaflynn/botctl-go/internal/service"
-	"github.com/montanaflynn/botctl-go/internal/tui"
-	"github.com/montanaflynn/botctl-go/internal/update"
-	"github.com/montanaflynn/botctl-go/internal/web"
+	"github.com/montanaflynn/botctl/internal/db"
+	"github.com/montanaflynn/botctl/internal/paths"
+	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/internal/tui"
+	"github.com/montanaflynn/botctl/internal/update"
+	"github.com/montanaflynn/botctl/internal/web"
 	"github.com/spf13/cobra"
 )
 

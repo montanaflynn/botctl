@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/montanaflynn/botctl-go/internal/service"
+	"github.com/montanaflynn/botctl/internal/service"
 )
 
 type handler struct {

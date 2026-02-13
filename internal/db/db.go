@@ -12,7 +12,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/montanaflynn/botctl-go/internal/paths"
+	"github.com/montanaflynn/botctl/internal/paths"
 )
 
 // DB wraps a SQLite database connection.

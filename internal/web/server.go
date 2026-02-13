@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/service"
+	"github.com/montanaflynn/botctl/internal/db"
+	"github.com/montanaflynn/botctl/internal/service"
 )
 
 //go:embed static

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/montanaflynn/botctl-go/internal/db"
-	"github.com/montanaflynn/botctl-go/internal/logs"
+	"github.com/montanaflynn/botctl/internal/db"
+	"github.com/montanaflynn/botctl/internal/logs"
 )
 
 // RecentLogs returns recent rendered log lines for a bot.

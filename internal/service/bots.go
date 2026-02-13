@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/montanaflynn/botctl-go/internal/discovery"
-	"github.com/montanaflynn/botctl-go/internal/process"
+	"github.com/montanaflynn/botctl/internal/discovery"
+	"github.com/montanaflynn/botctl/internal/process"
 )
 
 // ListBots discovers all bots, enriches them with status and stats,

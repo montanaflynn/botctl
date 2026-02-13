@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/montanaflynn/botctl-go/internal/harness"
+	"github.com/montanaflynn/botctl/internal/harness"
 	"github.com/spf13/cobra"
 )
 

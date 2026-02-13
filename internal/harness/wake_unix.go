@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/montanaflynn/botctl-go/internal/db"
+	"github.com/montanaflynn/botctl/internal/db"
 )
 
 // newWakeChannel creates a channel that receives a value when SIGUSR1 is sent to this process.
