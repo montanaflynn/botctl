@@ -23,6 +23,8 @@ archives:
 changelog:
   sort: asc
   use: github
+  format: "{{ .SHA }} {{ .Message }} (@{{ .AuthorUsername }})"
+  abbrev: 7
   groups:
     - title: Features
       regexp: "^.*feat.*:+.*$"
