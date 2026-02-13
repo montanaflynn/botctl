@@ -39,7 +39,13 @@ botctl start my-bot --once
 # View logs
 botctl logs my-bot -f
 
-# Stop
+# Pause a running bot (preserves session)
+botctl pause my-bot
+
+# Resume a paused bot
+botctl play my-bot --turns 20
+
+# Stop (kills process, loses session)
 botctl stop my-bot
 ```
 
@@ -51,6 +57,8 @@ botctl stop my-bot
 | `botctl create [name]` | Create a new bot via Claude (`-d` description, `-i` interval, `-m` max turns) |
 | `botctl start [name]` | Start a bot (`-d` detach, `-m` message, `--once` single run) |
 | `botctl stop [name]` | Stop a bot (no args = stop all) |
+| `botctl pause [name]` | Pause a running/sleeping bot (preserves session) |
+| `botctl play [name]` | Resume a paused bot (`-t` turns) |
 | `botctl list` | List bots with status |
 | `botctl status` | Detailed status of all bots |
 | `botctl logs [name]` | View logs (`-n` lines, `-f` follow) |
@@ -62,10 +70,10 @@ botctl stop my-bot
 | Key | Action |
 |-----|--------|
 | `s` | Start/stop selected bot |
-| `r` | Resume (editable turn count) |
+| `p` | Pause/play (pause if running/sleeping, play if paused) |
 | `m` / `enter` | Send message to bot |
 | `n` | Create new bot |
-| `c` | Clear bot logs and runs |
+| `c` | Clear bot context (restart) |
 | `d` | Delete bot (with confirmation) |
 | `o` | Open bot directory |
 | `f` / `tab` | Focus filter bar |
@@ -107,27 +115,34 @@ The markdown body becomes the bot's system prompt. Claude sees it every run.
 
 ## How It Works
 
+Bots have four states: **running** (executing Claude API call), **sleeping** (waiting between runs), **paused** (waiting for play/message), and **stopped** (no process).
+
 ```
 ┌─────────────────────────────────────────┐
 │              Harness Loop               │
 │                                         │
-│  1. Reload BOT.md config                │
+│  1. Reload BOT.md config    → running   │
 │  2. Check message queue                 │
 │  3. Run Claude task (up to max_turns)   │
 │  4. Record stats (cost, turns, session) │
 │  5. Write log file                      │
-│  6. Sleep for interval_seconds          │
-│     (woken early by messages/resume)    │
-│  7. Repeat                              │
+│  6. If max_turns hit       → paused     │
+│  7. Sleep for interval_seconds          │
+│     (woken early by messages/play)      │
+│                              → sleeping │
+│  8. Repeat                              │
 │                                         │
 └─────────────────────────────────────────┘
 ```
 
 Config changes (including `max_turns`) take effect on the next run without restarting.
 
-### Resume
+### Pause / Play
 
-When a run hits `max_turns`, the session ID is saved. Press `r` in the TUI to resume with an editable turn limit.
+- **Pause** interrupts a running bot or transitions a sleeping bot to paused. The session context is preserved.
+- **Play** resumes a paused bot with an editable turn count. Use **Start** to run a stopped bot.
+- **Stop** kills the process and loses the session. Use pause to preserve context.
+- When a run hits `max_turns`, the bot automatically enters paused state. Press `p` in the TUI to play.
 
 ### Skills
 

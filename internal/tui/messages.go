@@ -3,7 +3,7 @@ package tui
 import (
 	"time"
 
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/service"
 )
 
 // tickMsg fires on the refresh interval.

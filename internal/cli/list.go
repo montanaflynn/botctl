@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/service"
 	"github.com/spf13/cobra"
 )
 
@@ -22,9 +22,9 @@ func init() {
 					return nil
 				}
 				for _, bot := range bots {
-					status := "stopped"
-					if bot.Status == "running" {
-						status = fmt.Sprintf("running (pid %d)", bot.PID)
+					status := bot.Status
+					if bot.PID > 0 {
+						status = fmt.Sprintf("%s (pid %d)", bot.Status, bot.PID)
 					}
 					fmt.Printf("  %-20s %s\n", bot.Name, status)
 				}

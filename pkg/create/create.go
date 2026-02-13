@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/montanaflynn/botctl/internal/paths"
+	"github.com/montanaflynn/botctl/pkg/paths"
 	claude "github.com/montanaflynn/claude-agent-sdk-go"
 )
 

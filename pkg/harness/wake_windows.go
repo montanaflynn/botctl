@@ -8,7 +8,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/montanaflynn/botctl/internal/db"
+	"github.com/montanaflynn/botctl/pkg/db"
 )
 
 var (
@@ -68,8 +68,12 @@ func newWakeChannel(_ string, pid int) (chan struct{}, func()) {
 }
 
 // sleepUntilWake sleeps for the given duration but can be woken early
-// by a signal on the provided channel.
+// by a signal on the provided channel. If seconds is 0, waits indefinitely.
 func sleepUntilWake(seconds int, wakeCh <-chan struct{}) {
+	if seconds <= 0 {
+		<-wakeCh
+		return
+	}
 	select {
 	case <-wakeCh:
 	case <-time.After(time.Duration(seconds) * time.Second):
@@ -77,7 +81,8 @@ func sleepUntilWake(seconds int, wakeCh <-chan struct{}) {
 }
 
 // startInterruptForwarder starts a goroutine that listens for wake signals
-// and forwards them to the interrupt channel if there are pending messages.
+// and forwards them to the interrupt channel if there are pending messages
+// or a pause has been requested.
 // Returns a stop channel that should be closed when the run completes.
 func startInterruptForwarder(wakeCh <-chan struct{}, interruptCh chan<- struct{}, database *db.DB, botID string) chan struct{} {
 	stopForward := make(chan struct{})
@@ -85,7 +90,8 @@ func startInterruptForwarder(wakeCh <-chan struct{}, interruptCh chan<- struct{}
 		for {
 			select {
 			case <-wakeCh:
-				if database.HasPendingMessages(botID) {
+				_, _, pauseRequested := database.GetBotState(botID)
+				if database.HasPendingMessages(botID) || pauseRequested {
 					select {
 					case interruptCh <- struct{}{}:
 					default:

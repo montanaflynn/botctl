@@ -12,7 +12,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/montanaflynn/botctl/internal/paths"
+	"github.com/montanaflynn/botctl/pkg/paths"
 )
 
 // DB wraps a SQLite database connection.
@@ -153,6 +153,13 @@ func (d *DB) createTables() error {
 			created_at TEXT NOT NULL
 		);
 		CREATE INDEX IF NOT EXISTS idx_log_entries_bot ON log_entries(bot_id, id);
+		CREATE TABLE IF NOT EXISTS bot_state (
+			bot_id           TEXT PRIMARY KEY,
+			state            TEXT NOT NULL DEFAULT 'stopped',
+			last_session_id  TEXT,
+			pause_requested  INTEGER NOT NULL DEFAULT 0,
+			updated_at       TEXT NOT NULL
+		);
 	`)
 	if err != nil {
 		return err
@@ -513,6 +520,63 @@ func (d *DB) RemovePID(botName string) error {
 	return err
 }
 
+// SetBotState upserts the bot's state and updates the timestamp.
+func (d *DB) SetBotState(botID, state string) error {
+	_, err := d.conn.Exec(
+		`INSERT INTO bot_state (bot_id, state, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(bot_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at`,
+		botID, state, time.Now().Format(time.RFC3339),
+	)
+	return err
+}
+
+// GetBotState returns (state, lastSessionID, pauseRequested) for a bot.
+// Returns ("", "", false) if no entry exists.
+func (d *DB) GetBotState(botID string) (state string, lastSessionID string, pauseRequested bool) {
+	var pr int
+	err := d.conn.QueryRow(
+		`SELECT state, COALESCE(last_session_id, ''), pause_requested FROM bot_state WHERE bot_id = ?`, botID,
+	).Scan(&state, &lastSessionID, &pr)
+	if err != nil {
+		return "", "", false
+	}
+	return state, lastSessionID, pr != 0
+}
+
+// SetBotSessionID saves a session ID for resume.
+func (d *DB) SetBotSessionID(botID, sessionID string) error {
+	_, err := d.conn.Exec(
+		`INSERT INTO bot_state (bot_id, state, last_session_id, updated_at) VALUES (?, 'paused', ?, ?)
+		 ON CONFLICT(bot_id) DO UPDATE SET last_session_id = excluded.last_session_id, updated_at = excluded.updated_at`,
+		botID, sessionID, time.Now().Format(time.RFC3339),
+	)
+	return err
+}
+
+// SetPauseRequested sets or clears the pause_requested flag.
+func (d *DB) SetPauseRequested(botID string, requested bool) error {
+	val := 0
+	if requested {
+		val = 1
+	}
+	_, err := d.conn.Exec(
+		`INSERT INTO bot_state (bot_id, state, pause_requested, updated_at) VALUES (?, 'running', ?, ?)
+		 ON CONFLICT(bot_id) DO UPDATE SET pause_requested = excluded.pause_requested, updated_at = excluded.updated_at`,
+		botID, val, time.Now().Format(time.RFC3339),
+	)
+	return err
+}
+
+// ClearBotState resets to stopped, clears session and pause flag.
+func (d *DB) ClearBotState(botID string) error {
+	_, err := d.conn.Exec(
+		`INSERT INTO bot_state (bot_id, state, last_session_id, pause_requested, updated_at) VALUES (?, 'stopped', NULL, 0, ?)
+		 ON CONFLICT(bot_id) DO UPDATE SET state = 'stopped', last_session_id = NULL, pause_requested = 0, updated_at = excluded.updated_at`,
+		botID, time.Now().Format(time.RFC3339),
+	)
+	return err
+}
+
 // DeleteBotData removes all DB records for a bot (runs, messages, log_entries, pids).
 func (d *DB) DeleteBotData(botName string) error {
 	// Delete messages for all runs of this bot
@@ -528,7 +592,10 @@ func (d *DB) DeleteBotData(botName string) error {
 	if _, err := d.conn.Exec(`DELETE FROM runs WHERE bot_name = ?`, botName); err != nil {
 		return err
 	}
-	_, err = d.conn.Exec(`DELETE FROM pids WHERE bot_name = ?`, botName)
+	if _, err := d.conn.Exec(`DELETE FROM pids WHERE bot_name = ?`, botName); err != nil {
+		return err
+	}
+	_, err = d.conn.Exec(`DELETE FROM bot_state WHERE bot_id = ?`, botName)
 	return err
 }
 

@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/service"
 	"github.com/montanaflynn/botctl/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -80,8 +80,8 @@ func init() {
 					}
 				}
 
-				// Bot already running
-				if bot.Status == "running" {
+				// Bot already active
+				if service.IsActive(bot.Status) {
 					if message != "" {
 						// Restart with new message
 						svc.StopBot(name)
@@ -97,7 +97,7 @@ func init() {
 						return tui.Run()
 					}
 					if detach {
-						fmt.Printf("  %s already running\n", name)
+						fmt.Printf("  %s already active (%s)\n", name, bot.Status)
 						return nil
 					}
 					tui.Version = rootCmd.Version

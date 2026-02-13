@@ -21,7 +21,7 @@
 <meta name="twitter:image" content="/og-image.png" />
 
 <!-- Favicon -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text x='2' y='26' font-family='monospace' font-size='28' fill='%2300ff41'>$_</text></svg>" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
 <link rel="apple-touch-icon" href="/og-image.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -120,6 +120,7 @@ nav {
 .nav-inner {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -153,6 +154,30 @@ nav {
 }
 
 .nav-links a:hover { color: var(--text); opacity: 1; }
+
+.nav-cta {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  padding: 8px 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text) !important;
+  transition: background 0.2s, border-color 0.2s !important;
+}
+
+.nav-cta:hover {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: var(--text-dim) !important;
+}
+
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 8px;
+}
 
 /* ── Layout ──────────────────────────────── */
 
@@ -428,20 +453,39 @@ footer {
     max-height: none;
   }
   .nav-links { display: none; }
+  .nav-hamburger { display: block; }
+  .nav-links.open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: rgba(8, 8, 12, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+  }
   .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
 }
 </style>
 </head>
 <body>
 
-<nav>
+<nav id="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo"><span class="nav-prompt">$</span> botctl</a>
-    <ul class="nav-links">
-      <li><a href="/">Home</a></li>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#architecture">How It Works</a></li>
+      <li><a href="/#quickstart">Quickstart</a></li>
       <li><a href="/docs" style="color: var(--text);">Docs</a></li>
-      <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener" class="nav-cta"><svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:6px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
     </ul>
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
   </div>
 </nav>
 
@@ -611,6 +655,8 @@ weather APIs and alerts on severe storms.
           <tr><td>botctl create [name]</td><td>Create a new bot via Claude (<code>-d</code> description, <code>-i</code> interval, <code>-m</code> max turns)</td></tr>
           <tr><td>botctl start [name]</td><td>Start a bot (<code>-d</code> detach, <code>-m</code> message, <code>--once</code> single run)</td></tr>
           <tr><td>botctl stop [name]</td><td>Stop a bot (no args = stop all)</td></tr>
+          <tr><td>botctl pause &lt;name&gt;</td><td>Pause a running or sleeping bot</td></tr>
+          <tr><td>botctl play &lt;name&gt;</td><td>Resume a paused bot</td></tr>
           <tr><td>botctl list</td><td>List all bots with status</td></tr>
           <tr><td>botctl status</td><td>Detailed status of all bots</td></tr>
           <tr><td>botctl logs [name]</td><td>View logs (<code>-n</code> lines, <code>-f</code> follow)</td></tr>
@@ -696,7 +742,7 @@ weather APIs and alerts on severe storms.
     <!-- Database -->
     <section class="docs-section" id="database">
       <div class="section-label">Database</div>
-      <p>SQLite at <code>~/.botctl/botctl.db</code> with WAL mode. Stores:</p>
+      <p>SQLite at <code>~/.botctl/data/botctl.db</code> with WAL mode. Stores:</p>
       <table class="docs-table">
         <thead>
           <tr><th>Table</th><th>Description</th></tr>
@@ -716,18 +762,19 @@ weather APIs and alerts on severe storms.
       <div class="section-label">File Layout</div>
       <div class="code-block">
         <div class="code-header">~/.botctl/</div>
-        <div class="code-body"><span class="cmd">botctl.db</span>                    <span class="comment"># SQLite (WAL mode)</span>
-<span class="cmd">workspace/</span>                   <span class="comment"># Shared workspace</span>
+        <div class="code-body"><span class="cmd">data/</span>
+  <span class="str">botctl.db</span>                  <span class="comment"># SQLite database (WAL mode)</span>
+<span class="cmd">workspace/</span>                     <span class="comment"># Shared workspace</span>
 <span class="cmd">bots/</span>
   <span class="str">my-bot/</span>
-    <span class="key">BOT.md</span>                   <span class="comment"># Config + prompt</span>
-    <span class="str">skills/</span>                  <span class="comment"># Skill files</span>
-      api-access.md
-      safety-rules.md
-    <span class="str">workspace/</span>               <span class="comment"># Local workspace</span>
+    <span class="key">BOT.md</span>                     <span class="comment"># Config + system prompt</span>
+    <span class="str">skills/</span>                    <span class="comment"># Skill markdown files (loaded each run)</span>
+      <span class="flag">research.md</span>              <span class="comment"># Each file is an instruction set</span>
+      <span class="flag">formatting.md</span>
+    <span class="str">workspace/</span>                 <span class="comment"># Local workspace (if workspace: local)</span>
     <span class="str">logs/</span>
-      20260208-142305.log    <span class="comment"># Per-run logs</span>
-      boot.log               <span class="comment"># Harness startup</span></div>
+      20260208-142305.log      <span class="comment"># Per-run logs</span>
+      boot.log                 <span class="comment"># Harness startup</span></div>
       </div>
     </section>
 
@@ -747,6 +794,18 @@ weather APIs and alerts on severe storms.
 </footer>
 
 <script>
+// Mobile hamburger menu
+(function() {
+  var hamburger = document.getElementById('nav-hamburger');
+  var navLinks = document.getElementById('nav-links');
+  if (hamburger && navLinks) {
+    hamburger.addEventListener('click', function() { navLinks.classList.toggle('open'); });
+    navLinks.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function() { navLinks.classList.remove('open'); });
+    });
+  }
+})();
+
 // Highlight active sidebar link on scroll
 (function() {
   var links = document.querySelectorAll('.sidebar-link');

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/montanaflynn/botctl/internal/discovery"
-	"github.com/montanaflynn/botctl/internal/process"
+	"github.com/montanaflynn/botctl/pkg/discovery"
+	"github.com/montanaflynn/botctl/pkg/process"
 )
 
 // ListBots discovers all bots, enriches them with status and stats,
@@ -36,8 +36,17 @@ func (s *Service) GetStats() AggregateStats {
 	stats.TotalBots = len(bots)
 	for _, bot := range bots {
 		id := botID(&bot)
-		if running, _ := process.IsRunning(id, s.db); running {
+		status := s.resolveStatus(id)
+		switch status {
+		case "running":
 			stats.RunningBots++
+			stats.ActiveBots++
+		case "sleeping":
+			stats.SleepingBots++
+			stats.ActiveBots++
+		case "paused":
+			stats.PausedBots++
+			stats.ActiveBots++
 		}
 		bs := s.db.GetBotStats(id)
 		stats.TotalRuns += bs.Runs
@@ -61,13 +70,10 @@ func (s *Service) findBot(name string) (*discovery.Bot, error) {
 // buildBotInfo enriches a discovered bot with running status and DB stats.
 func (s *Service) buildBotInfo(bot *discovery.Bot) BotInfo {
 	id := botID(bot)
-	running, pid := process.IsRunning(id, s.db)
+	_, pid := process.IsRunning(id, s.db)
 	stats := s.db.GetBotStats(id)
 
-	status := "stopped"
-	if running {
-		status = "running"
-	}
+	status := s.resolveStatus(id)
 
 	return BotInfo{
 		Name:   bot.Name,
@@ -82,6 +88,29 @@ func (s *Service) buildBotInfo(bot *discovery.Bot) BotInfo {
 			TotalCost:  stats.TotalCost,
 			LastRun:    stats.LastRun,
 		},
+	}
+}
+
+// resolveStatus determines the bot's display status from DB state + process check.
+func (s *Service) resolveStatus(id string) string {
+	alive, _ := process.IsRunning(id, s.db)
+	dbState, _, _ := s.db.GetBotState(id)
+
+	if !alive {
+		// Process dead — clear any stale state
+		if dbState != "" && dbState != "stopped" {
+			s.db.ClearBotState(id)
+		}
+		return "stopped"
+	}
+
+	// Process alive — use DB state if available
+	switch dbState {
+	case "running", "sleeping", "paused":
+		return dbState
+	default:
+		// Fallback for bots started before state machine was added
+		return "running"
 	}
 }
 

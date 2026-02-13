@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/montanaflynn/botctl/internal/config"
-	"github.com/montanaflynn/botctl/internal/db"
-	"github.com/montanaflynn/botctl/internal/logs"
-	"github.com/montanaflynn/botctl/internal/paths"
+	"github.com/montanaflynn/botctl/pkg/config"
+	"github.com/montanaflynn/botctl/pkg/db"
+	"github.com/montanaflynn/botctl/pkg/logs"
+	"github.com/montanaflynn/botctl/pkg/paths"
 	claude "github.com/montanaflynn/claude-agent-sdk-go"
 )
 
@@ -296,6 +296,9 @@ func Run(botDir string, once bool, message string) error {
 	var lastSessionID string // set when a run hits max turns or is interrupted
 
 	for {
+		// Set state to running at loop entry
+		database.SetBotState(id, "running")
+
 		// Reload config each iteration so BOT.md edits take effect without restart
 		cfg, err := config.FromMD(filepath.Join(absDir, "BOT.md"))
 		if err != nil {
@@ -343,6 +346,14 @@ func Run(botDir string, once bool, message string) error {
 			resumeSession = lastSessionID
 		}
 
+		// Also check DB for saved session from a previous paused state
+		if resumeSession == "" {
+			_, dbSession, _ := database.GetBotState(id)
+			if dbSession != "" {
+				resumeSession = dbSession
+			}
+		}
+
 		runHeader := fmt.Sprintf("Run #%d", runNumber)
 		fmt.Printf("\n## %s\n", runHeader)
 		database.InsertLogEntry(id, runID, "run_header", runHeader, "")
@@ -374,8 +385,22 @@ func Run(botDir string, once bool, message string) error {
 			}
 		}
 
-		// Store session ID for resume on interrupt or max turns
-		if wasInterrupted {
+		// Check if pause was requested during run
+		_, _, pauseRequested := database.GetBotState(id)
+
+		// Determine post-run state
+		if pauseRequested {
+			// Pause was requested while running — enter paused state
+			database.SetPauseRequested(id, false) // clear the flag
+			if sessionID != "" {
+				lastSessionID = sessionID
+				database.SetBotSessionID(id, sessionID)
+			}
+			database.SetBotState(id, "paused")
+			pauseMsg := "Paused by operator"
+			fmt.Printf("## %s\n", pauseMsg)
+			database.InsertLogEntry(id, runID, "paused", pauseMsg, "")
+		} else if wasInterrupted {
 			if sessionID != "" {
 				lastSessionID = sessionID
 			}
@@ -385,10 +410,12 @@ func Run(botDir string, once bool, message string) error {
 		} else if cfg.MaxTurns > 0 && (result == nil || result.NumTurns >= cfg.MaxTurns) {
 			if sessionID != "" {
 				lastSessionID = sessionID
+				database.SetBotSessionID(id, sessionID)
 			}
+			database.SetBotState(id, "paused")
 			maxMsg := fmt.Sprintf("Max turns reached (%d/%d)", turns, cfg.MaxTurns)
-			fmt.Printf("## %s\nPress r to resume\n", maxMsg)
-			database.InsertLogEntry(id, runID, "max_turns", maxMsg, "Press r to resume")
+			fmt.Printf("## %s\nPress p to play\n", maxMsg)
+			database.InsertLogEntry(id, runID, "max_turns", maxMsg, "Press p to play")
 		} else {
 			lastSessionID = ""
 		}
@@ -411,6 +438,7 @@ func Run(botDir string, once bool, message string) error {
 		}
 
 		if once {
+			database.SetBotState(id, "stopped")
 			break
 		}
 
@@ -419,6 +447,30 @@ func Run(botDir string, once bool, message string) error {
 			continue
 		}
 
+		// Check current state — if paused (from max_turns or pause request), enter paused wait loop
+		currentState, _, _ := database.GetBotState(id)
+		if currentState == "paused" {
+			pausedMsg := "paused, waiting for play or message..."
+			fmt.Println(pausedMsg)
+			database.InsertLogEntry(id, 0, "paused", "", pausedMsg)
+
+			// Paused wait loop — stay here until messages arrive
+			for {
+				sleepUntilWake(0, wakeCh) // 0 = wait indefinitely for signal
+				if database.HasPendingMessages(id) {
+					break
+				}
+				// Re-check state in case it changed (e.g. stop clears state)
+				st, _, _ := database.GetBotState(id)
+				if st != "paused" {
+					break
+				}
+			}
+			continue
+		}
+
+		// Normal sleep between runs
+		database.SetBotState(id, "sleeping")
 		sleepMsg := fmt.Sprintf("sleeping %ds...", cfg.IntervalSeconds)
 		fmt.Println(sleepMsg)
 		database.InsertLogEntry(id, 0, "sleep", "", sleepMsg)

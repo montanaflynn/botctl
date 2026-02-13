@@ -179,6 +179,16 @@ tbody td {
   color: var(--green);
 }
 
+.status-sleeping {
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent);
+}
+
+.status-paused {
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--orange);
+}
+
 .status-stopped {
   background: rgba(125, 133, 144, 0.15);
   color: var(--text-dim);
@@ -354,6 +364,16 @@ tbody td {
 .btn-resume {
   color: var(--orange);
   border-color: rgba(210, 153, 34, 0.3);
+}
+
+.btn-pause {
+  color: var(--orange);
+  border-color: rgba(210, 153, 34, 0.3);
+}
+
+.btn-play {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.3);
 }
 
 .btn-delete {
@@ -544,7 +564,8 @@ tbody td {
   <button class="btn btn-send" id="btn-send" disabled>Send</button>
   <button class="btn btn-start" id="btn-start" disabled>Start</button>
   <button class="btn btn-stop" id="btn-stop" disabled>Stop</button>
-  <button class="btn btn-resume" id="btn-resume" disabled>Resume</button>
+  <button class="btn btn-pause" id="btn-pause" disabled>Pause</button>
+  <button class="btn btn-play" id="btn-play" disabled>Play</button>
   <button class="btn btn-delete" id="btn-delete" disabled>Delete</button>
   <span class="notify" id="notify"></span>
 </div>
@@ -560,14 +581,14 @@ tbody td {
   </div>
 </div>
 
-<!-- Resume Dialog -->
+<!-- Play Dialog -->
 <div class="resume-overlay" id="resume-overlay" style="display:none">
   <div class="resume-box">
-    <label>Resume <strong id="resume-name"></strong> for how many turns?</label>
+    <label>Play <strong id="resume-name"></strong> for how many turns?</label>
     <input type="number" id="resume-turns" min="1" value="50">
     <div class="resume-actions">
       <button class="btn" id="resume-cancel">Cancel</button>
-      <button class="btn btn-resume" id="resume-confirm">Resume</button>
+      <button class="btn btn-play" id="resume-confirm">Play</button>
     </div>
   </div>
 </div>
@@ -597,7 +618,8 @@ tbody td {
   const $btnSend = document.getElementById('btn-send');
   const $btnStart = document.getElementById('btn-start');
   const $btnStop = document.getElementById('btn-stop');
-  const $btnResume = document.getElementById('btn-resume');
+  const $btnPause = document.getElementById('btn-pause');
+  const $btnPlay = document.getElementById('btn-play');
   const $btnDelete = document.getElementById('btn-delete');
   const $notify = document.getElementById('notify');
   const $statBots = document.getElementById('stat-bots');
@@ -680,7 +702,8 @@ tbody td {
 
     $table.innerHTML = filtered.map(bot => {
       const cls = (selectedBot && selectedBot === bot.name) ? ' class="selected"' : '';
-      const statusCls = bot.status === 'running' ? 'status-running' : 'status-stopped';
+      const statusMap = { running: 'status-running', sleeping: 'status-sleeping', paused: 'status-paused', stopped: 'status-stopped' };
+      const statusCls = statusMap[bot.status] || 'status-stopped';
       return '<tr' + cls + ' data-name="' + bot.name + '">' +
         '<td>' + esc(bot.name) + '</td>' +
         '<td><span class="status-badge ' + statusCls + '">' + bot.status + '</span></td>' +
@@ -714,16 +737,18 @@ tbody td {
     $btnSend.disabled = !hasSel;
     $btnStart.disabled = !hasSel;
     $btnStop.disabled = !hasSel;
-    $btnResume.disabled = !hasSel;
+    $btnPause.disabled = !hasSel;
+    $btnPlay.disabled = !hasSel;
     $btnDelete.disabled = !hasSel;
 
     if (hasSel) {
       const bot = bots.find(b => b.name === selectedBot);
       if (bot) {
-        const running = bot.status === 'running';
-        $btnStart.textContent = running ? 'Start' : 'Start';
-        $btnStart.disabled = running;
-        $btnStop.disabled = !running;
+        const active = bot.status === 'running' || bot.status === 'sleeping' || bot.status === 'paused';
+        $btnStart.disabled = active;
+        $btnStop.disabled = !active;
+        $btnPause.disabled = !(bot.status === 'running' || bot.status === 'sleeping');
+        $btnPlay.disabled = bot.status !== 'paused';
         $msgInput.placeholder = 'message ' + bot.name + '...';
       }
     } else {
@@ -735,7 +760,7 @@ tbody td {
   async function refreshStats() {
     try {
       const s = await api('GET', '/stats');
-      $statBots.textContent = s.running_bots + '/' + s.total_bots;
+      $statBots.textContent = s.active_bots + '/' + s.total_bots;
       $statRuns.textContent = s.total_runs;
       $statCost.textContent = '$' + s.total_cost.toFixed(2);
     } catch(e) {}
@@ -777,7 +802,8 @@ tbody td {
     if (isTag || kind === 'run_header' || kind === 'cost' || kind === 'tool_use' ||
         kind === 'tool_result' || kind === 'tool_error' || kind === 'error' ||
         kind === 'warning' || kind === 'max_turns' || kind === 'sleep' ||
-        kind === 'event' || kind === 'resume' || kind === 'feedback') {
+        kind === 'event' || kind === 'resume' || kind === 'feedback' ||
+        kind === 'paused' || kind === 'interrupted') {
       const label = esc(first);
       const body = lines.slice(1).filter(l => l !== '').map(l => esc(l)).join('\n');
       let html = '<div class="log-box kind-' + kind + '"><div class="log-box-label">' + label + '</div>';
@@ -893,6 +919,26 @@ tbody td {
     } catch(e) { notify('message failed', true); }
   }
 
+  async function doPause() {
+    if (!selectedBot) return;
+    try {
+      const res = await api('POST', '/bots/' + encodeURIComponent(selectedBot) + '/pause');
+      if (res.ok) notify(res.message);
+      else notify(res.error, true);
+      refreshBots();
+    } catch(e) { notify('pause failed', true); }
+  }
+
+  async function doPlay(turns) {
+    if (!selectedBot) return;
+    try {
+      const res = await api('POST', '/bots/' + encodeURIComponent(selectedBot) + '/play', { turns: turns });
+      if (res.ok) notify(res.message);
+      else notify(res.error, true);
+      refreshBots();
+    } catch(e) { notify('play failed', true); }
+  }
+
   async function doResume(turns) {
     if (!selectedBot) return;
     try {
@@ -948,11 +994,14 @@ tbody td {
     if (e.key === 'Enter') doMessage();
   });
 
-  $btnResume.addEventListener('click', function() {
+  $btnPause.addEventListener('click', doPause);
+
+  $btnPlay.addEventListener('click', function() {
     if (!selectedBot) return;
-    document.getElementById('resume-name').textContent = selectedBot;
-    // Try to use bot's max_turns as default
     const bot = bots.find(b => b.name === selectedBot);
+    if (!bot || bot.status !== 'paused') return;
+    // Paused — show turn count dialog
+    document.getElementById('resume-name').textContent = selectedBot;
     document.getElementById('resume-turns').value = (bot && bot.max_turns > 0) ? bot.max_turns : 50;
     document.getElementById('resume-overlay').style.display = 'flex';
     document.getElementById('resume-turns').focus();
@@ -965,7 +1014,7 @@ tbody td {
   document.getElementById('resume-confirm').addEventListener('click', function() {
     const turns = parseInt(document.getElementById('resume-turns').value, 10);
     document.getElementById('resume-overlay').style.display = 'none';
-    if (turns > 0) doResume(turns);
+    if (turns > 0) doPlay(turns);
   });
 
   document.getElementById('resume-turns').addEventListener('keydown', function(e) {

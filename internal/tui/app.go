@@ -14,10 +14,10 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/montanaflynn/botctl/internal/config"
-	"github.com/montanaflynn/botctl/internal/db"
-	"github.com/montanaflynn/botctl/internal/process"
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/config"
+	"github.com/montanaflynn/botctl/pkg/db"
+	"github.com/montanaflynn/botctl/pkg/process"
+	"github.com/montanaflynn/botctl/pkg/service"
 )
 
 // Version is set by the CLI package before launching.
@@ -70,7 +70,7 @@ type model struct {
 	createProgressC chan string        // channel for create progress messages
 
 	tellInput    textinput.Model // always-visible message input
-	resuming     bool            // true when resume turn-count input is open
+	resuming     bool            // true when play turn-count input is open
 	resumeInput  textinput.Model // editable turn count
 	pending      *pendingAction  // in-flight kill operation
 	confirmDelete bool           // true when waiting for y/n to confirm delete
@@ -395,11 +395,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m.toggleBot()
-		case "r":
+		case "p":
 			if m.pending != nil {
 				return m, nil
 			}
-			return m.resumeBot()
+			return m.pausePlayBot()
 		case "o":
 			m.openBotDir()
 			return m, nil
@@ -667,10 +667,10 @@ func (m *model) refreshBots() {
 		rows = append(rows, table.Row{bot.Name, status, pidStr, runs, cost, lastRun})
 	}
 
-	// On initial load, switch to status sort if any bot is running
+	// On initial load, switch to status sort if any bot is active
 	if !m.autoShown && len(rows) > 0 {
 		for _, row := range rows {
-			if row[1] == "running" {
+			if row[1] != "stopped" {
 				m.sortCol = 1
 				m.sortOrder = sortAsc
 				break
@@ -814,10 +814,36 @@ func (m *model) syncLogContent() {
 	}
 }
 
-// styledTableView renders the table and applies purple background to the active-log bot's row.
+// styledTableView renders the table with colored status values.
 func (m model) styledTableView() string {
 	raw := m.table.View()
 	lines := strings.Split(raw, "\n")
+
+	// Apply status coloring to data rows (skip header at index 0)
+	cols := m.table.Columns()
+	if len(cols) >= 2 {
+		statusStart := cols[0].Width + 1 // NAME width + gap
+		statusEnd := statusStart + cols[1].Width
+		for i := 1; i < len(lines); i++ {
+			runes := []rune(lines[i])
+			if len(runes) < statusEnd {
+				continue
+			}
+			statusText := strings.TrimSpace(string(runes[statusStart:statusEnd]))
+			if statusText == "" {
+				continue
+			}
+			colored := colorStatus(statusText)
+			// Reconstruct line with colored status
+			before := string(runes[:statusStart])
+			after := string(runes[statusEnd:])
+			pad := cols[1].Width - lipgloss.Width(colored)
+			if pad < 0 {
+				pad = 0
+			}
+			lines[i] = before + colored + strings.Repeat(" ", pad) + after
+		}
+	}
 
 	// Replace header line with custom render that includes the filter and sort arrows
 	if len(lines) > 0 {
@@ -1066,7 +1092,7 @@ func (m *model) toggleBot() (tea.Model, tea.Cmd) {
 	}
 
 	id := bot.ID
-	if bot.Status == "running" {
+	if service.IsActive(bot.Status) {
 		// Stop: send kill in goroutine, no DB access
 		m.pending = &pendingAction{kind: "stop", botName: name, botID: id, bot: *bot}
 		m.setNotify(fmt.Sprintf("stopping %s...", name), false)
@@ -1088,7 +1114,7 @@ func (m *model) toggleBot() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// clearBot restarts a running bot to clear its session context. If stopped, just starts it.
+// clearBot restarts an active bot to clear its session context. If stopped, just starts it.
 func (m *model) clearBot() (tea.Model, tea.Cmd) {
 	name := m.cursorBotName()
 	if name == "" {
@@ -1100,7 +1126,7 @@ func (m *model) clearBot() (tea.Model, tea.Cmd) {
 	}
 
 	id := bot.ID
-	if bot.Status == "running" {
+	if service.IsActive(bot.Status) {
 		m.pending = &pendingAction{kind: "clear", botName: name, botID: id, bot: *bot}
 		m.setNotify(fmt.Sprintf("clearing %s...", name), false)
 		m.appendLogEvent(name, "clearing context...")
@@ -1131,14 +1157,14 @@ func (m *model) executeDelete() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if bot.Status == "running" {
+	if service.IsActive(bot.Status) {
 		// Stop first, then delete in handleProcessStopped
 		m.pending = &pendingAction{kind: "delete", botName: name, botID: bot.ID, bot: *bot}
 		m.setNotify(fmt.Sprintf("stopping %s...", name), false)
 		return m, killProcessCmd(name, bot.PID)
 	}
 
-	// Not running — delete immediately
+	// Not active — delete immediately
 	m.finishDelete(name, bot)
 	return m, nil
 }
@@ -1158,8 +1184,41 @@ func (m *model) finishDelete(name string, bot *service.BotInfo) {
 	m.refreshBots()
 }
 
-// resumeBot opens the inline resume input pre-filled with the current max_turns from BOT.md.
-func (m *model) resumeBot() (tea.Model, tea.Cmd) {
+// pausePlayBot handles the `p` key: pause if running/sleeping, play if paused.
+// No-op when stopped (use `s` to start).
+func (m *model) pausePlayBot() (tea.Model, tea.Cmd) {
+	name := m.cursorBotName()
+	if name == "" {
+		return m, nil
+	}
+	bot := m.botCache[name]
+	if bot == nil {
+		return m, nil
+	}
+
+	switch bot.Status {
+	case "running", "sleeping":
+		// Pause
+		err := m.svc.PauseBot(name)
+		if err != nil {
+			m.setNotify(fmt.Sprintf("pause failed: %v", err), true)
+			return m, nil
+		}
+		m.setNotify(fmt.Sprintf("%s pausing...", name), false)
+		m.appendLogEvent(name, "pause requested")
+		m.refreshBots()
+		return m, nil
+
+	case "paused":
+		// Play — open turn count input
+		return m.openPlayInput()
+	}
+
+	return m, nil
+}
+
+// openPlayInput opens the inline turn-count input for resuming a paused bot.
+func (m *model) openPlayInput() (tea.Model, tea.Cmd) {
 	name := m.cursorBotName()
 	if name == "" {
 		return m, nil
@@ -1187,7 +1246,7 @@ func (m *model) resumeBot() (tea.Model, tea.Cmd) {
 	return m, textinput.Blink
 }
 
-// submitResume parses the turn count and sends a resume:N command.
+// submitResume parses the turn count and sends a play command.
 func (m model) submitResume() (tea.Model, tea.Cmd) {
 	val := strings.TrimSpace(m.resumeInput.Value())
 	m.resuming = false
@@ -1205,19 +1264,15 @@ func (m model) submitResume() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	result, err := m.svc.Resume(name, turns)
+	pid, err := m.svc.PlayBot(name, turns)
 	if err != nil {
-		m.setNotify(fmt.Sprintf("resume failed: %v", err), true)
+		m.setNotify(fmt.Sprintf("play failed: %v", err), true)
 		return m, nil
 	}
 
-	m.appendLogEvent(name, fmt.Sprintf("resume for %d turns", turns))
-
-	if strings.Contains(result, "started") {
-		m.appendLogEvent(name, result)
-		m.refreshBots()
-	}
-	m.setNotify(fmt.Sprintf("resume: %s", result), false)
+	m.appendLogEvent(name, fmt.Sprintf("play for %d turns (pid %d)", turns, pid))
+	m.refreshBots()
+	m.setNotify(fmt.Sprintf("%s playing (%d turns)", name, turns), false)
 
 	m.selectBotByName(name)
 	return m, nil
@@ -1239,8 +1294,9 @@ func (m model) handleProcessStopped(msg processStoppedMsg) (tea.Model, tea.Cmd) 
 	p := m.pending
 	m.pending = nil
 
-	// Clean up PID from DB (synchronous, fast)
+	// Clean up PID and state from DB (synchronous, fast)
 	m.svc.RemovePID(p.botID)
+	m.svc.ClearState(p.botID)
 
 	switch p.kind {
 	case "stop":
@@ -1296,7 +1352,7 @@ func (m model) View() string {
 
 	// Header with aggregate stats
 	aggStats := m.svc.GetStats()
-	b.WriteString(renderHeader(m.width, aggStats.RunningBots, aggStats.TotalBots, aggStats.TotalRuns, aggStats.TotalCost))
+	b.WriteString(renderHeader(m.width, aggStats.ActiveBots, aggStats.TotalBots, aggStats.TotalRuns, aggStats.TotalCost))
 	b.WriteString("\n\n")
 
 	// Bots header with label and filter
@@ -1367,7 +1423,7 @@ func (m model) View() string {
 	// Row 1: message input (only when a bot is selected)
 	name := m.cursorBotName()
 	if m.resuming {
-		prompt := helpStyle.Render(fmt.Sprintf("resume %s for", name))
+		prompt := helpStyle.Render(fmt.Sprintf("play %s for", name))
 		b.WriteString(prompt + " " + m.resumeInput.View() + " " + helpStyle.Render("turns"))
 		b.WriteString("\n")
 	} else if name != "" {
@@ -1383,12 +1439,25 @@ func (m model) View() string {
 
 	// Row 2: help bar
 	startStop := "s:start"
+	pausePlay := ""
 	if name := m.cursorBotName(); name != "" {
-		if bot, ok := m.botCache[name]; ok && bot.Status == "running" {
-			startStop = "s:stop"
+		if bot, ok := m.botCache[name]; ok {
+			if service.IsActive(bot.Status) {
+				startStop = "s:stop"
+			}
+			switch bot.Status {
+			case "running", "sleeping":
+				pausePlay = "p:pause"
+			case "paused":
+				pausePlay = "p:play"
+			}
 		}
 	}
-	helpText := startStop + "  r:resume  c:clear  d:delete  n:new  o:open  f:filter  q:quit"
+	helpParts := startStop
+	if pausePlay != "" {
+		helpParts += "  " + pausePlay
+	}
+	helpText := helpParts + "  c:clear  d:delete  n:new  o:open  f:filter  q:quit"
 	if m.confirmDelete {
 		helpText = fmt.Sprintf("delete %s? y:confirm  n:cancel", m.deleteTarget)
 	} else if m.tellInput.Focused() {
@@ -1486,9 +1555,9 @@ func headerLines(width int) int {
 	return 1
 }
 
-func renderHeader(width, runningCount, totalBots, totalRuns int, totalCost float64) string {
+func renderHeader(width, activeCount, totalBots, totalRuns int, totalCost float64) string {
 	statsLines := []string{
-		fmt.Sprintf("bots: %d/%d", runningCount, totalBots),
+		fmt.Sprintf("bots: %d/%d", activeCount, totalBots),
 		fmt.Sprintf("runs: %d", totalRuns),
 		fmt.Sprintf("cost: $%.2f", totalCost),
 	}

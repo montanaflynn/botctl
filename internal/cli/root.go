@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/montanaflynn/botctl/internal/db"
-	"github.com/montanaflynn/botctl/internal/paths"
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/db"
+	"github.com/montanaflynn/botctl/pkg/paths"
+	"github.com/montanaflynn/botctl/pkg/service"
 	"github.com/montanaflynn/botctl/internal/tui"
 	"github.com/montanaflynn/botctl/internal/update"
 	"github.com/montanaflynn/botctl/internal/web"

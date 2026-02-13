@@ -52,4 +52,26 @@ var (
 			Foreground(lipgloss.Color("250")).
 			PaddingLeft(1).
 			PaddingRight(1)
+
+	// Status colors
+	statusRunningStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("82"))  // green
+	statusSleepingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))  // blue
+	statusPausedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // amber
+	statusStoppedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("242")) // gray
 )
+
+// colorStatus returns a styled status string with the appropriate color.
+func colorStatus(status string) string {
+	switch status {
+	case "running":
+		return statusRunningStyle.Render(status)
+	case "sleeping":
+		return statusSleepingStyle.Render(status)
+	case "paused":
+		return statusPausedStyle.Render(status)
+	case "stopped":
+		return statusStoppedStyle.Render(status)
+	default:
+		return helpStyle.Render(status) // stopping, restarting, etc.
+	}
+}

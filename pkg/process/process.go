@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/montanaflynn/botctl/internal/config"
-	"github.com/montanaflynn/botctl/internal/db"
-	"github.com/montanaflynn/botctl/internal/paths"
+	"github.com/montanaflynn/botctl/pkg/config"
+	"github.com/montanaflynn/botctl/pkg/db"
+	"github.com/montanaflynn/botctl/pkg/paths"
 )
 
 // IsRunning checks if a bot is alive by reading its PID from the db and checking the process.

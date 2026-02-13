@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/montanaflynn/botctl/internal/db"
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/db"
+	"github.com/montanaflynn/botctl/pkg/service"
 )
 
 //go:embed static
@@ -37,6 +37,8 @@ func Serve(port int) error {
 	mux.HandleFunc("POST /api/bots/{name}/stop", h.stopBot)
 	mux.HandleFunc("POST /api/bots/{name}/message", h.messageBot)
 	mux.HandleFunc("POST /api/bots/{name}/resume", h.resumeBot)
+	mux.HandleFunc("POST /api/bots/{name}/pause", h.pauseBot)
+	mux.HandleFunc("POST /api/bots/{name}/play", h.playBot)
 	mux.HandleFunc("DELETE /api/bots/{name}", h.deleteBot)
 	mux.HandleFunc("GET /api/bots/{name}/logs", h.getBotLogs)
 	mux.HandleFunc("GET /api/bots/{name}/logs/stream", h.streamBotLogs)

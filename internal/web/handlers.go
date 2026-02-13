@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/service"
 )
 
 type handler struct {
@@ -39,11 +39,14 @@ type actionResponse struct {
 }
 
 type statsResponse struct {
-	TotalBots   int     `json:"total_bots"`
-	RunningBots int     `json:"running_bots"`
-	TotalRuns   int     `json:"total_runs"`
-	TotalCost   float64 `json:"total_cost"`
-	TotalTurns  int     `json:"total_turns"`
+	TotalBots    int     `json:"total_bots"`
+	ActiveBots   int     `json:"active_bots"`
+	RunningBots  int     `json:"running_bots"`
+	SleepingBots int     `json:"sleeping_bots"`
+	PausedBots   int     `json:"paused_bots"`
+	TotalRuns    int     `json:"total_runs"`
+	TotalCost    float64 `json:"total_cost"`
+	TotalTurns   int     `json:"total_turns"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -172,6 +175,43 @@ func (h *handler) resumeBot(w http.ResponseWriter, r *http.Request) {
 	writeOK(w, result)
 }
 
+func (h *handler) pauseBot(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	err := h.svc.PauseBot(name)
+	if err != nil {
+		if err == service.ErrBotNotFound {
+			writeError(w, http.StatusNotFound, "bot not found")
+		} else {
+			writeError(w, http.StatusConflict, err.Error())
+		}
+		return
+	}
+	writeOK(w, "pausing")
+}
+
+func (h *handler) playBot(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	var body struct {
+		Turns int `json:"turns"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Turns <= 0 {
+		writeError(w, http.StatusBadRequest, "turns must be a positive integer")
+		return
+	}
+
+	pid, err := h.svc.PlayBot(name, body.Turns)
+	if err != nil {
+		if err == service.ErrBotNotFound {
+			writeError(w, http.StatusNotFound, "bot not found")
+		} else {
+			writeError(w, http.StatusConflict, err.Error())
+		}
+		return
+	}
+	writeOK(w, fmt.Sprintf("playing (pid %d, %d turns)", pid, body.Turns))
+}
+
 func (h *handler) deleteBot(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	err := h.svc.DeleteBot(name)
@@ -213,10 +253,13 @@ func (h *handler) getBotLogs(w http.ResponseWriter, r *http.Request) {
 func (h *handler) getStats(w http.ResponseWriter, r *http.Request) {
 	s := h.svc.GetStats()
 	writeJSON(w, http.StatusOK, statsResponse{
-		TotalBots:   s.TotalBots,
-		RunningBots: s.RunningBots,
-		TotalRuns:   s.TotalRuns,
-		TotalCost:   s.TotalCost,
-		TotalTurns:  s.TotalTurns,
+		TotalBots:    s.TotalBots,
+		ActiveBots:   s.ActiveBots,
+		RunningBots:  s.RunningBots,
+		SleepingBots: s.SleepingBots,
+		PausedBots:   s.PausedBots,
+		TotalRuns:    s.TotalRuns,
+		TotalCost:    s.TotalCost,
+		TotalTurns:   s.TotalTurns,
 	})
 }

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/montanaflynn/botctl/internal/service"
+	"github.com/montanaflynn/botctl/pkg/service"
 	"github.com/spf13/cobra"
 )
 
