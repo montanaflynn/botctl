@@ -74,6 +74,35 @@ body {
   font-weight: 600;
 }
 
+/* View tabs */
+.view-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.view-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-tab:hover {
+  color: var(--text-dim);
+  border-color: var(--border-light);
+}
+
+.view-tab.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.08);
+}
+
 /* Main Layout */
 .main {
   flex: 1;
@@ -82,10 +111,24 @@ body {
   overflow: hidden;
 }
 
+#bots-view, #skills-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* Bot Table */
 .table-section {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+}
+
+#skills-view .table-section {
+  max-height: 50%;
+  overflow-y: auto;
+  flex-shrink: 1;
 }
 
 .table-header {
@@ -262,6 +305,18 @@ tbody td {
   text-align: center;
 }
 
+.loading-dots::after {
+  content: '';
+  animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%  { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+
 /* Log entry boxes */
 .log-entry {
   margin-bottom: 4px;
@@ -386,6 +441,16 @@ tbody td {
   border-color: rgba(88, 166, 255, 0.3);
 }
 
+.btn-search {
+  color: var(--purple);
+  border-color: rgba(188, 140, 255, 0.3);
+}
+
+.btn-install {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.3);
+}
+
 .notify {
   font-size: 11px;
   color: var(--text-dim);
@@ -400,6 +465,53 @@ tbody td {
 
 .notify.error {
   color: var(--red);
+}
+
+/* Skill detail content */
+.skill-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.skill-files {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.skill-files-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.skill-file {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 1px 0;
+}
+
+.skill-source-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(188, 140, 255, 0.15);
+  color: var(--purple);
+}
+
+.skill-desc {
+  color: var(--text-dim);
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Responsive */
@@ -514,7 +626,11 @@ tbody td {
 <div class="header">
   <div class="header-left">
     <div class="logo">BOTCTL</div>
-    <div class="stats">
+    <div class="view-tabs">
+      <button class="view-tab active" id="tab-bots" onclick="switchView('bots')">&lt;bots&gt;</button>
+      <button class="view-tab" id="tab-skills" onclick="switchView('skills')">&lt;skills&gt;</button>
+    </div>
+    <div class="stats" id="stats-bar">
       <span class="stat">bots: <span class="stat-value" id="stat-bots">-</span></span>
       <span class="stat">runs: <span class="stat-value" id="stat-runs">-</span></span>
       <span class="stat">cost: <span class="stat-value" id="stat-cost">-</span></span>
@@ -523,43 +639,83 @@ tbody td {
 </div>
 
 <div class="main">
-  <div class="table-section">
-    <div class="table-header">
-      <span class="table-label">&lt;bots&gt;</span>
-      <input class="filter-input" id="filter" type="text" placeholder="filter...">
+  <!-- Bots view -->
+  <div id="bots-view">
+    <div class="table-section">
+      <div class="table-header">
+        <span class="table-label">&lt;bots&gt;</span>
+        <input class="filter-input" id="filter" type="text" placeholder="filter...">
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th data-col="name">Name <span class="sort-arrow" id="sort-name"></span></th>
+            <th data-col="status">Status <span class="sort-arrow" id="sort-status"></span></th>
+            <th data-col="pid" class="hide-mobile">PID <span class="sort-arrow" id="sort-pid"></span></th>
+            <th data-col="runs" class="hide-mobile">Runs <span class="sort-arrow" id="sort-runs"></span></th>
+            <th data-col="cost">Cost <span class="sort-arrow" id="sort-cost"></span></th>
+            <th data-col="last_run">Last Run <span class="sort-arrow" id="sort-last_run"></span></th>
+          </tr>
+        </thead>
+        <tbody id="bot-table"></tbody>
+      </table>
+      <div class="empty-state" id="empty-state" style="display:none">
+        <div class="empty-state-title">No bots found</div>
+        <div>Create a bot with: botctl create my-bot</div>
+      </div>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th data-col="name">Name <span class="sort-arrow" id="sort-name"></span></th>
-          <th data-col="status">Status <span class="sort-arrow" id="sort-status"></span></th>
-          <th data-col="pid" class="hide-mobile">PID <span class="sort-arrow" id="sort-pid"></span></th>
-          <th data-col="runs" class="hide-mobile">Runs <span class="sort-arrow" id="sort-runs"></span></th>
-          <th data-col="cost">Cost <span class="sort-arrow" id="sort-cost"></span></th>
-          <th data-col="last_run">Last Run <span class="sort-arrow" id="sort-last_run"></span></th>
-        </tr>
-      </thead>
-      <tbody id="bot-table"></tbody>
-    </table>
-    <div class="empty-state" id="empty-state" style="display:none">
-      <div class="empty-state-title">No bots found</div>
-      <div>Create a bot with: botctl create my-bot</div>
+
+    <div class="log-section">
+      <div class="log-header">
+        <span class="log-label">&lt;logs&gt;</span>
+        <span class="log-bot-name" id="log-bot-name"></span>
+        <span class="new-lines-badge" id="new-lines-badge" title="Click to scroll to bottom"></span>
+      </div>
+      <div class="log-content" id="log-content">
+        <div class="log-empty">select a bot to view logs</div>
+      </div>
     </div>
   </div>
 
-  <div class="log-section">
-    <div class="log-header">
-      <span class="log-label">&lt;logs&gt;</span>
-      <span class="log-bot-name" id="log-bot-name"></span>
-      <span class="new-lines-badge" id="new-lines-badge" title="Click to scroll to bottom"></span>
+  <!-- Skills view -->
+  <div id="skills-view" style="display:none">
+    <div class="table-section">
+      <div class="table-header">
+        <span class="table-label">&lt;skills&gt;</span>
+        <input class="filter-input" id="skills-search" type="text" placeholder="search skills.sh..." style="width:220px">
+        <button class="btn btn-search" id="btn-skills-search">Search</button>
+      </div>
+      <table>
+        <thead id="skills-thead">
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th class="hide-mobile">Source</th>
+          </tr>
+        </thead>
+        <tbody id="skills-table"></tbody>
+      </table>
+      <div class="empty-state" id="skills-empty" style="display:none">
+        <div class="empty-state-title">No skills found</div>
+        <div>Search skills.sh or install with: botctl skills add owner/repo</div>
+      </div>
     </div>
-    <div class="log-content" id="log-content">
-      <div class="log-empty">select a bot to view logs</div>
+
+    <div class="log-section">
+      <div class="log-header">
+        <span class="log-label">&lt;detail&gt;</span>
+        <span class="log-bot-name" id="skill-detail-name"></span>
+        <span class="skill-source-badge" id="skill-detail-source" style="display:none"></span>
+      </div>
+      <div class="log-content" id="skill-detail-content">
+        <div class="log-empty">select a skill to view details</div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="footer">
+<!-- Bots footer -->
+<div class="footer" id="bots-footer">
   <input class="message-input" id="message-input" type="text" placeholder="message for the bot..." disabled>
   <button class="btn btn-send" id="btn-send" disabled>Send</button>
   <button class="btn btn-start" id="btn-start" disabled>Start</button>
@@ -570,7 +726,14 @@ tbody td {
   <span class="notify" id="notify"></span>
 </div>
 
-<!-- Confirm Delete Dialog -->
+<!-- Skills footer -->
+<div class="footer" id="skills-footer" style="display:none">
+  <button class="btn btn-install" id="btn-skill-install" style="display:none" disabled>Install</button>
+  <button class="btn btn-delete" id="btn-skill-remove" style="display:none" disabled>Remove</button>
+  <span class="notify" id="skills-notify"></span>
+</div>
+
+<!-- Confirm Delete Bot Dialog -->
 <div class="confirm-overlay" id="confirm-overlay" style="display:none">
   <div class="confirm-box">
     <p>Delete <strong id="confirm-name"></strong>? This cannot be undone.</p>
@@ -593,6 +756,17 @@ tbody td {
   </div>
 </div>
 
+<!-- Confirm Remove Skill Dialog -->
+<div class="confirm-overlay" id="skill-confirm-overlay" style="display:none">
+  <div class="confirm-box">
+    <p>Remove skill <strong id="skill-confirm-name"></strong>? This cannot be undone.</p>
+    <div class="confirm-actions">
+      <button class="btn" id="skill-confirm-cancel">Cancel</button>
+      <button class="btn btn-delete" id="skill-confirm-yes">Remove</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
   'use strict';
@@ -606,6 +780,13 @@ tbody td {
   let filterText = '';
   let newLineCount = 0;
   let autoScroll = true;
+  let currentView = 'bots';
+
+  // Skills state
+  let skillsList = [];
+  let selectedSkillIdx = -1;
+  let selectedSkillSource = '';
+  let skillsSearchMode = false;
 
   // Elements
   const $table = document.getElementById('bot-table');
@@ -626,6 +807,18 @@ tbody td {
   const $statRuns = document.getElementById('stat-runs');
   const $statCost = document.getElementById('stat-cost');
 
+  // Skills elements
+  const $skillsTable = document.getElementById('skills-table');
+  const $skillsEmpty = document.getElementById('skills-empty');
+  const $skillsSearch = document.getElementById('skills-search');
+  const $btnSkillsSearch = document.getElementById('btn-skills-search');
+  const $skillDetailName = document.getElementById('skill-detail-name');
+  const $skillDetailSource = document.getElementById('skill-detail-source');
+  const $skillDetailContent = document.getElementById('skill-detail-content');
+  const $btnSkillInstall = document.getElementById('btn-skill-install');
+  const $btnSkillRemove = document.getElementById('btn-skill-remove');
+  const $skillsNotify = document.getElementById('skills-notify');
+
   // API helpers
   async function api(method, path, body) {
     const opts = { method, headers: {} };
@@ -640,12 +833,28 @@ tbody td {
   // Notification
   let notifyTimer = null;
   function notify(msg, isError) {
-    $notify.textContent = msg;
-    $notify.classList.toggle('error', !!isError);
-    $notify.classList.add('visible');
+    const $n = currentView === 'skills' ? $skillsNotify : $notify;
+    $n.textContent = msg;
+    $n.classList.toggle('error', !!isError);
+    $n.classList.add('visible');
     clearTimeout(notifyTimer);
-    notifyTimer = setTimeout(() => $notify.classList.remove('visible'), 4000);
+    notifyTimer = setTimeout(() => $n.classList.remove('visible'), 4000);
   }
+
+  // View switching
+  window.switchView = function(view) {
+    currentView = view;
+    document.getElementById('bots-view').style.display = view === 'bots' ? '' : 'none';
+    document.getElementById('skills-view').style.display = view === 'skills' ? '' : 'none';
+    document.getElementById('bots-footer').style.display = view === 'bots' ? '' : 'none';
+    document.getElementById('skills-footer').style.display = view === 'skills' ? '' : 'none';
+    document.getElementById('stats-bar').style.display = view === 'bots' ? '' : 'none';
+    document.getElementById('tab-bots').classList.toggle('active', view === 'bots');
+    document.getElementById('tab-skills').classList.toggle('active', view === 'skills');
+    if (view === 'skills') {
+      refreshSkills();
+    }
+  };
 
   // Time ago
   function timeAgo(iso) {
@@ -965,13 +1174,187 @@ tbody td {
     } catch(e) { notify('delete failed', true); }
   }
 
-  // Event listeners
+  // ---- Skills functions ----
+
+  async function refreshSkills() {
+    try {
+      const data = await api('GET', '/skills');
+      skillsList = data || [];
+      skillsSearchMode = false;
+      renderSkillsTable();
+    } catch(e) {
+      console.error('skills refresh failed:', e);
+    }
+  }
+
+  async function doSearchSkills(q) {
+    if (!q) { refreshSkills(); return; }
+    $btnSkillsSearch.disabled = true;
+    $btnSkillsSearch.textContent = 'Searching...';
+    $skillsSearch.disabled = true;
+    $skillsTable.innerHTML = '';
+    $skillsEmpty.style.display = 'flex';
+    $skillsEmpty.innerHTML = '<div class="loading-dots">searching</div>';
+    try {
+      const data = await api('GET', '/skills/search?q=' + encodeURIComponent(q));
+      $skillsEmpty.innerHTML = '<div class="empty-state-title">No skills found</div><div>Search skills.sh or install with: botctl skills add owner/repo</div>';
+      skillsList = (data || []).map(s => ({
+        name: s.name,
+        source: s.source,
+        installs: s.installs || 0
+      }));
+      skillsSearchMode = true;
+      selectedSkillIdx = -1;
+      selectedSkillSource = '';
+      updateSkillButtons();
+      renderSkillsTable();
+      $skillDetailName.textContent = '';
+      $skillDetailSource.style.display = 'none';
+      $skillDetailContent.innerHTML = '<div class="log-empty">select a skill to view details</div>';
+    } catch(e) {
+      notify('search failed: ' + e.message, true);
+    }
+    $btnSkillsSearch.disabled = false;
+    $btnSkillsSearch.textContent = 'Search';
+    $skillsSearch.disabled = false;
+  }
+
+  function renderSkillsTable() {
+    const $thead = document.getElementById('skills-thead');
+    if (skillsSearchMode) {
+      $thead.innerHTML = '<tr><th>Name</th><th>Source</th><th class="hide-mobile">Installs</th></tr>';
+    } else {
+      $thead.innerHTML = '<tr><th>Name</th><th>Description</th><th class="hide-mobile">Source</th></tr>';
+    }
+
+    if (skillsList.length === 0) {
+      $skillsTable.innerHTML = '';
+      $skillsEmpty.style.display = 'flex';
+      return;
+    }
+    $skillsEmpty.style.display = 'none';
+
+    $skillsTable.innerHTML = skillsList.map((sk, idx) => {
+      const cls = (selectedSkillIdx === idx) ? ' class="selected"' : '';
+      const src = sk.source || '';
+      if (skillsSearchMode) {
+        const installs = sk.installs != null ? sk.installs.toLocaleString() : '0';
+        return '<tr' + cls + ' data-idx="' + idx + '">' +
+          '<td>' + esc(sk.name) + '</td>' +
+          '<td>' + esc(src) + '</td>' +
+          '<td class="hide-mobile">' + installs + '</td>' +
+          '</tr>';
+      }
+      const desc = sk.description || '';
+      return '<tr' + cls + ' data-idx="' + idx + '">' +
+        '<td>' + esc(sk.name) + '</td>' +
+        '<td class="skill-desc">' + esc(desc) + '</td>' +
+        '<td class="hide-mobile">' + esc(src) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function selectedSkillObj() {
+    return selectedSkillIdx >= 0 ? skillsList[selectedSkillIdx] : null;
+  }
+
+  function updateSkillButtons() {
+    const isLocal = selectedSkillSource === 'local';
+    const isViewed = selectedSkillSource !== '';
+    $btnSkillRemove.style.display = (isViewed && isLocal) ? '' : 'none';
+    $btnSkillRemove.disabled = !(isViewed && isLocal);
+    $btnSkillInstall.style.display = (isViewed && !isLocal) ? '' : 'none';
+    $btnSkillInstall.disabled = !(isViewed && !isLocal);
+  }
+
+  async function doViewSkill(idx) {
+    const sk = skillsList[idx];
+    if (!sk) return;
+    const name = sk.name;
+    const repo = skillsSearchMode ? (sk.source || '') : '';
+    selectedSkillSource = '';
+    renderSkillsTable();
+    $skillDetailName.textContent = name;
+    $skillDetailSource.style.display = 'none';
+    $skillDetailContent.innerHTML = '<div class="log-empty"><span class="loading-dots">loading</span></div>';
+    updateSkillButtons();
+
+    try {
+      let path = '/skills/' + encodeURIComponent(name);
+      if (repo) path += '?repo=' + encodeURIComponent(repo);
+      const data = await api('GET', path);
+
+      if (data.error) {
+        $skillDetailContent.innerHTML = '<div class="log-empty">' + esc(data.error) + '</div>';
+        return;
+      }
+
+      selectedSkillSource = data.source || 'local';
+      $skillDetailSource.textContent = selectedSkillSource;
+      $skillDetailSource.style.display = 'inline-block';
+      updateSkillButtons();
+
+      let html = '<div class="skill-content">' + esc(data.content || '') + '</div>';
+      if (data.files && data.files.length > 0) {
+        html += '<div class="skill-files"><div class="skill-files-label">Files</div>';
+        html += data.files.map(f => '<div class="skill-file">' + esc(f) + '</div>').join('');
+        html += '</div>';
+      }
+      $skillDetailContent.innerHTML = html;
+    } catch(e) {
+      $skillDetailContent.innerHTML = '<div class="log-empty">failed to load skill</div>';
+    }
+  }
+
+  async function doInstallSkill(name, source) {
+    $btnSkillInstall.disabled = true;
+    $btnSkillInstall.textContent = 'Installing...';
+    try {
+      const res = await api('POST', '/skills/add', { source: source, skill: name });
+      if (res.ok) {
+        notify(res.message);
+        selectedSkillSource = 'local';
+        updateSkillButtons();
+        refreshSkills();
+      } else {
+        notify(res.error, true);
+        $btnSkillInstall.disabled = false;
+      }
+    } catch(e) {
+      notify('install failed', true);
+      $btnSkillInstall.disabled = false;
+    }
+    $btnSkillInstall.textContent = 'Install';
+  }
+
+  async function doRemoveSkill(name) {
+    try {
+      const res = await api('DELETE', '/skills/' + encodeURIComponent(name));
+      if (res.ok) {
+        notify(res.message);
+        selectedSkillIdx = -1;
+        selectedSkillSource = '';
+        updateSkillButtons();
+        $skillDetailName.textContent = '';
+        $skillDetailSource.style.display = 'none';
+        $skillDetailContent.innerHTML = '<div class="log-empty">select a skill to view details</div>';
+        refreshSkills();
+      } else {
+        notify(res.error, true);
+      }
+    } catch(e) { notify('remove failed', true); }
+  }
+
+  // ---- Event listeners ----
+
+  // Bot table click
   $table.addEventListener('click', function(e) {
     const row = e.target.closest('tr');
     if (row && row.dataset.name) selectBot(row.dataset.name);
   });
 
-  document.querySelectorAll('thead th').forEach(th => {
+  // Bot table sort
+  document.querySelectorAll('#bots-view thead th').forEach(th => {
     th.addEventListener('click', function() {
       const col = this.dataset.col;
       if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -1000,7 +1383,6 @@ tbody td {
     if (!selectedBot) return;
     const bot = bots.find(b => b.name === selectedBot);
     if (!bot || bot.status !== 'paused') return;
-    // Paused — show turn count dialog
     document.getElementById('resume-name').textContent = selectedBot;
     document.getElementById('resume-turns').value = (bot && bot.max_turns > 0) ? bot.max_turns : 50;
     document.getElementById('resume-overlay').style.display = 'flex';
@@ -1054,14 +1436,58 @@ tbody td {
     }
   });
 
+  // Skills table click — select and load details
+  $skillsTable.addEventListener('click', function(e) {
+    const row = e.target.closest('tr');
+    if (row && row.dataset.idx != null) {
+      const idx = parseInt(row.dataset.idx, 10);
+      selectedSkillIdx = idx;
+      doViewSkill(idx);
+    }
+  });
+
+  // Skills search
+  $btnSkillsSearch.addEventListener('click', function() {
+    doSearchSkills($skillsSearch.value.trim());
+  });
+
+  $skillsSearch.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doSearchSkills($skillsSearch.value.trim());
+  });
+
+  // Skills install
+  $btnSkillInstall.addEventListener('click', function() {
+    const sk = selectedSkillObj();
+    if (!sk || !selectedSkillSource || selectedSkillSource === 'local') return;
+    doInstallSkill(sk.name, selectedSkillSource);
+  });
+
+  // Skills remove
+  $btnSkillRemove.addEventListener('click', function() {
+    const sk = selectedSkillObj();
+    if (!sk) return;
+    document.getElementById('skill-confirm-name').textContent = sk.name;
+    document.getElementById('skill-confirm-overlay').style.display = 'flex';
+  });
+
+  document.getElementById('skill-confirm-cancel').addEventListener('click', function() {
+    document.getElementById('skill-confirm-overlay').style.display = 'none';
+  });
+
+  document.getElementById('skill-confirm-yes').addEventListener('click', function() {
+    const name = document.getElementById('skill-confirm-name').textContent;
+    document.getElementById('skill-confirm-overlay').style.display = 'none';
+    doRemoveSkill(name);
+  });
+
   // Keyboard shortcuts
   document.addEventListener('keydown', function(e) {
-    // Skip if typing in an input
     if (e.target.tagName === 'INPUT') return;
 
     if (e.key === 'Escape') {
       document.getElementById('confirm-overlay').style.display = 'none';
       document.getElementById('resume-overlay').style.display = 'none';
+      document.getElementById('skill-confirm-overlay').style.display = 'none';
     }
   });
 
