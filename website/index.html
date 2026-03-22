@@ -1556,7 +1556,7 @@ footer {
           <div class="arch-card-title"><span class="hl-green">Declarative</span> config</div>
           <div class="arch-card-num">01</div>
         </div>
-        <div class="arch-card-text">One file defines everything. YAML frontmatter for settings, markdown body for the prompt.</div>
+        <div class="arch-card-text">YAML frontmatter for settings, markdown body for the prompt.</div>
         <div class="arch-card-snippet"><span class="kw">---</span>
 <span class="str">name</span>: code-reviewer
 <span class="str">interval_seconds</span>: <span class="num">60</span>
@@ -1569,7 +1569,7 @@ Review open PRs and post comments...</div>
           <div class="arch-card-title"><span class="hl-blue">Autonomous</span> execution</div>
           <div class="arch-card-num">02</div>
         </div>
-        <div class="arch-card-text">The harness spawns Claude with your prompt, tools, and a workspace. It runs, logs, and sleeps on a loop.</div>
+        <div class="arch-card-text">Spawns Claude with your prompt, tools, and workspace. Runs, logs, and sleeps on a loop.</div>
         <div class="arch-card-snippet"><span class="cm">$</span> botctl start code-reviewer <span class="cm">-d</span>
 <span class="str">&#10003;</span> Harness started (pid 48201)
 <span class="cm">$</span> botctl logs code-reviewer <span class="cm">-f</span>
@@ -1582,8 +1582,7 @@ Review open PRs and post comments...</div>
         </div>
         <div class="arch-card-text">Every run saves its session. Resume where Claude left off, or send messages to redirect a running bot.</div>
         <div class="arch-card-snippet"><span class="cm">$</span> botctl start review <span class="cm">--message</span> <span class="str">"focus on PR 51"</span>
-<span class="str">&#10003;</span> Message queued, waking bot...
-<span class="cm"># bot resumes with full context</span></div>
+<span class="str">&#10003;</span> Message queued, waking bot...</div>
       </div>
       <div class="arch-card">
         <div class="arch-card-header">
@@ -1604,6 +1603,16 @@ Review open PRs and post comments...</div>
         <div class="arch-card-snippet"><span class="cm">$</span> botctl skills search slack
 <span class="cm">$</span> botctl skills add owner/repo <span class="cm">--skill</span> slack-notify
 <span class="cm">$</span> botctl skills list</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-header">
+          <div class="arch-card-title"><span class="hl-blue">Web</span> dashboard</div>
+          <div class="arch-card-num">06</div>
+        </div>
+        <div class="arch-card-text">Monitor and control bots from the browser. Same capabilities as the TUI — start, stop, message, and stream logs.</div>
+        <div class="arch-card-snippet"><span class="cm">$</span> botctl <span class="cm">--web-ui</span>
+<span class="str">&#10003;</span> Dashboard at http://localhost:4444
+<span class="cm">$</span> botctl <span class="cm">--web-ui --port</span> <span class="num">8080</span></div>
       </div>
     </div>
   </div>
@@ -1671,7 +1680,7 @@ Review open PRs and post comments...</div>
 <span class="prompt">$</span> <span class="cmd">botctl</span>
 
 <span class="comment"># Web dashboard</span>
-<span class="prompt">$</span> <span class="cmd">botctl</span> <span class="flag">--web-ui</span>              <span class="comment"># port 4444</span>
+<span class="prompt">$</span> <span class="cmd">botctl</span> <span class="flag">--web-ui</span> <span class="comment"># port 4444</span>
 <span class="prompt">$</span> <span class="cmd">botctl</span> <span class="flag">--web-ui --port</span> <span class="num">8080</span></div>
           </div>
         </div>
