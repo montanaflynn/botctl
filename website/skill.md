@@ -121,6 +121,32 @@ Skills are discovered from three locations (first occurrence of a name wins):
 
 Skills are re-discovered every run — add, edit, or remove them without restarting the bot.
 
+### Managing Skills
+
+```sh
+# Search the skills.sh registry for community skills
+botctl skills search slack
+
+# Install a skill from GitHub (default: ~/.botctl/skills/)
+botctl skills add owner/repo --skill slack-notify
+
+# Install to a specific bot's skills_dir
+botctl skills add owner/repo --skill slack-notify --bot my-bot
+
+# Install to ~/.agents/skills/ (shared across all agent tools)
+botctl skills add owner/repo --skill slack-notify --global
+
+# List all discovered skills
+botctl skills list
+botctl skills list --bot my-bot
+
+# View a skill's SKILL.md content
+botctl skills view slack-notify
+
+# Remove a skill
+botctl skills remove slack-notify
+```
+
 ## Messaging
 
 Send a message to any bot. If the bot is running or sleeping, it wakes immediately. If stopped, it auto-starts.

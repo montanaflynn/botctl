@@ -630,6 +630,45 @@ weather APIs and alerts on severe storms.
     state.json</div>
       </div>
       <p>Skills are re-discovered every run, so you can add, edit, or remove them without restarting the bot.</p>
+
+      <h3>Managing Skills</h3>
+      <p>The <code>botctl skills</code> commands let you search, install, view, and remove skills from the CLI.</p>
+
+      <div class="code-block">
+        <div class="code-header">search &amp; install</div>
+        <div class="code-body"><span class="cm">$</span> botctl skills search slack
+<span class="str">NAME              SOURCE                      INSTALLS</span>
+<span class="str">slack-notify      montanaflynn/agent-skills   2.1K</span>
+<span class="str">slack-reader      acme/slack-tools             840</span>
+
+<span class="cm">$</span> botctl skills add montanaflynn/agent-skills --skill slack-notify
+Installing skills from montanaflynn/agent-skills...
+  installed slack-notify → ~/.botctl/skills/
+1 skill(s) installed</div>
+      </div>
+
+      <p>By default, skills install to <code>~/.botctl/skills/</code> (shared across all bots). Use flags to change the destination:</p>
+      <table class="config-table">
+        <thead><tr><th>Flag</th><th>Destination</th></tr></thead>
+        <tbody>
+          <tr><td><code>--bot &lt;name&gt;</code></td><td>Bot's <code>skills_dir</code> (per-bot only)</td></tr>
+          <tr><td><code>--global</code></td><td><code>~/.agents/skills/</code> (cross-agent, shared with other tools)</td></tr>
+          <tr><td>(default)</td><td><code>~/.botctl/skills/</code> (all botctl bots)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="code-block">
+        <div class="code-header">view &amp; remove</div>
+        <div class="code-body"><span class="cm"># View a skill's content and files</span>
+<span class="cm">$</span> botctl skills view slack-notify
+
+<span class="cm"># List all discovered skills</span>
+<span class="cm">$</span> botctl skills list
+<span class="cm">$</span> botctl skills list --bot my-bot
+
+<span class="cm"># Remove a skill</span>
+<span class="cm">$</span> botctl skills remove slack-notify</div>
+      </div>
     </section>
 
     <!-- Workspaces -->
@@ -785,7 +824,7 @@ weather APIs and alerts on severe storms.
 <span class="cmd">bots/</span>
   <span class="str">my-bot/</span>
     <span class="key">BOT.md</span>                     <span class="comment"># Config + system prompt</span>
-    <span class="str">skills/</span>                    <span class="comment"># Skill markdown files (loaded each run)</span>
+    <span class="str">skills/</span>                    <span class="comment"># Skill directories (discovered each run)</span>
       <span class="flag">research.md</span>              <span class="comment"># Each file is an instruction set</span>
       <span class="flag">formatting.md</span>
     <span class="str">workspace/</span>                 <span class="comment"># Local workspace (if workspace: local)</span>
