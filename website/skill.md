@@ -46,6 +46,11 @@ botctl start my-bot --once -m "generate the weekly report"
 | `botctl status` | Detailed status of all bots |
 | `botctl logs [name]` | View logs (`-n` lines, `-f` follow) |
 | `botctl delete <name>` | Delete a bot and all its data (`-y` skip confirmation) |
+| `botctl skills list` | List discovered skills (`--bot` to filter by bot) |
+| `botctl skills search <query>` | Search skills.sh for community skills (`-n` limit) |
+| `botctl skills add <owner/repo>` | Install skills from a GitHub repo (`--skill`, `--bot`, `--global`) |
+| `botctl skills view <name>` | View a skill's SKILL.md and list its files |
+| `botctl skills remove <name>` | Remove an installed skill |
 | `botctl update` | Self-update to the latest release |
 
 ## BOT.md Format
@@ -78,13 +83,13 @@ You are a bot that does a specific task. Each run you should:
 | `interval_seconds` | int | 60 | Seconds between runs |
 | `max_turns` | int | - | Max Claude API turns per run |
 | `workspace` | string | - | `local` (per-bot) or `shared` (global) |
-| `skills_dir` | string | - | Path to skill markdown files |
+| `skills_dir` | string | - | Relative path to skill directories |
 | `env` | map | - | Environment variables (`${VAR}` resolved from OS) |
 | `log_retention` | int | 30 | Number of log files to keep |
 
 ### System Prompt
 
-The markdown body after the frontmatter is the bot's system prompt. Claude sees it every run along with the workspace path, skills, and turn limit. Edit the file and changes take effect on the next run without restarting.
+The markdown body after the frontmatter is the bot's system prompt. Claude sees it every run along with the workspace path, skill index, and turn limit. Edit the file and changes take effect on the next run without restarting.
 
 ## Workspaces
 
@@ -95,18 +100,26 @@ The bot's Claude process runs with its working directory set to the resolved wor
 
 ## Skills
 
-Skills are markdown files in the bot's `skills_dir`. The harness tells Claude to read every file in the directory each run. Each skill is an instruction set the bot follows.
+Skills are directories containing a `SKILL.md` file with YAML frontmatter (`name` and `description`) and a markdown body. The harness parses frontmatter from all discovered skills and lists them by name and description in the system prompt. Claude loads full skill content on-demand via the Skill tool.
+
+Skills are discovered from three locations (first occurrence of a name wins):
+
+1. `~/.agents/skills/` — cross-agent shared skills
+2. `~/.botctl/skills/` — botctl-wide shared skills
+3. Bot's `skills_dir` — per-bot skills
 
 ```
 ~/.botctl/bots/my-bot/
   BOT.md
   skills/
-    research.md
-    formatting.md
+    research/
+      SKILL.md
+    formatting/
+      SKILL.md
   workspace/
 ```
 
-Skills are reloaded every run — add, edit, or remove them without restarting the bot.
+Skills are re-discovered every run — add, edit, or remove them without restarting the bot.
 
 ## Messaging
 
@@ -148,7 +161,9 @@ botctl stop my-bot        # stop completely
   bots/
     <name>/
       BOT.md                   # Bot config + system prompt
-      skills/                  # Skill files (if skills_dir set)
+      skills/                  # Skill directories (if skills_dir set)
+        my-skill/
+          SKILL.md
       workspace/               # Local workspace (if workspace: local)
       logs/                    # Timestamped run logs
 ```

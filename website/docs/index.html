@@ -595,7 +595,7 @@ weather APIs and alerts on severe storms.
           <tr><td>interval_seconds</td><td>int</td><td>Seconds between runs. Default: 60</td></tr>
           <tr><td>max_turns</td><td>int</td><td>Turn limit per run. 0 = unlimited. When hit, the session is saved for resume.</td></tr>
           <tr><td>workspace</td><td>string</td><td><code>local</code> (per-bot) or <code>shared</code> (global). Default: local</td></tr>
-          <tr><td>skills_dir</td><td>string</td><td>Relative path to skill markdown files</td></tr>
+          <tr><td>skills_dir</td><td>string</td><td>Relative path to skill directories</td></tr>
           <tr><td>log_dir</td><td>string</td><td>Custom log directory. Default: logs/</td></tr>
           <tr><td>log_retention</td><td>int</td><td>Number of run logs to keep before pruning. Default: 30</td></tr>
           <tr><td>env</td><td>map</td><td>Environment variables. Supports <code>${VAR}</code> references to system env.</td></tr>
@@ -606,18 +606,26 @@ weather APIs and alerts on severe storms.
     <!-- Skills -->
     <section class="docs-section" id="skills">
       <div class="section-label">Skills</div>
-      <p>Skills are markdown files in the bot's <code>skills_dir</code>. The harness tells Claude to read every file in the directory. Each skill is an instruction set the bot follows.</p>
+      <p>Skills are directories containing a <code>SKILL.md</code> file with YAML frontmatter (<code>name</code> and <code>description</code>) and a markdown body. The harness parses frontmatter from all discovered skills and lists them by name and description in the system prompt. Claude loads full skill content on-demand via the Skill tool.</p>
+      <p>Skills are discovered from three locations (first occurrence of a name wins):</p>
+      <ol>
+        <li><code>~/.agents/skills/</code> — cross-agent shared skills</li>
+        <li><code>~/.botctl/skills/</code> — botctl-wide shared skills</li>
+        <li>Bot's <code>skills_dir</code> — per-bot skills</li>
+      </ol>
       <div class="code-block">
         <div class="code-header">file structure</div>
         <div class="code-body"><span class="str">my-bot/</span>
   BOT.md
   <span class="str">skills/</span>
-    api-access.md
-    safety-rules.md
+    <span class="str">api-access/</span>
+      SKILL.md
+    <span class="str">safety-rules/</span>
+      SKILL.md
   <span class="str">workspace/</span>
     state.json</div>
       </div>
-      <p>Skills are reloaded every run, so you can add, edit, or remove them without restarting the bot.</p>
+      <p>Skills are re-discovered every run, so you can add, edit, or remove them without restarting the bot.</p>
     </section>
 
     <!-- Workspaces -->
@@ -661,6 +669,11 @@ weather APIs and alerts on severe storms.
           <tr><td>botctl status</td><td>Detailed status of all bots</td></tr>
           <tr><td>botctl logs [name]</td><td>View logs (<code>-n</code> lines, <code>-f</code> follow)</td></tr>
           <tr><td>botctl delete &lt;name&gt;</td><td>Delete a bot and its data (<code>-y</code> skip confirmation)</td></tr>
+          <tr><td>botctl skills list</td><td>List discovered skills (<code>--bot</code> to filter by bot)</td></tr>
+          <tr><td>botctl skills search &lt;query&gt;</td><td>Search skills.sh for community skills (<code>-n</code> limit)</td></tr>
+          <tr><td>botctl skills add &lt;owner/repo&gt;</td><td>Install skills from a GitHub repo (<code>--skill</code>, <code>--bot</code>, <code>--global</code>)</td></tr>
+          <tr><td>botctl skills view &lt;name&gt;</td><td>View a skill's SKILL.md and list its files</td></tr>
+          <tr><td>botctl skills remove &lt;name&gt;</td><td>Remove an installed skill</td></tr>
           <tr><td>botctl update</td><td>Self-update to the latest release</td></tr>
           <tr><td>botctl --version</td><td>Show version and commit hash</td></tr>
         </tbody>

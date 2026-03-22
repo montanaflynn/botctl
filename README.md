@@ -4,6 +4,8 @@ Process manager for autonomous AI agent bots. Run persistent agents from a singl
 
 **[Website](https://botctl.dev)** &middot; **[Docs](https://botctl.dev/docs)** &middot; **[Releases](https://github.com/montanaflynn/botctl/releases)**
 
+![botctl TUI dashboard](website/tui-screenshot.png)
+
 ## Install
 
 ```bash
@@ -63,6 +65,11 @@ botctl stop my-bot
 | `botctl status` | Detailed status of all bots |
 | `botctl logs [name]` | View logs (`-n` lines, `-f` follow) |
 | `botctl delete <name>` | Delete a bot and its data (`-y` skip confirmation) |
+| `botctl skills list` | List discovered skills (`--bot` to filter by bot) |
+| `botctl skills search <query>` | Search skills.sh for community skills (`-n` limit) |
+| `botctl skills add <owner/repo>` | Install skills from a GitHub repo (`--skill`, `--bot`, `--global`) |
+| `botctl skills view <name>` | View a skill's SKILL.md and list its files |
+| `botctl skills remove <name>` | Remove an installed skill |
 | `botctl update` | Self-update to the latest release |
 
 ## TUI Keybindings
@@ -107,7 +114,7 @@ You are an autonomous agent that...
 | `interval_seconds` | int | 60 | Seconds between runs |
 | `max_turns` | int | 0 (unlimited) | Turn limit per run |
 | `workspace` | string | `local` | `local` (per-bot) or `shared` (`~/.botctl/workspace/`) |
-| `skills_dir` | string | — | Relative path to skill markdown files |
+| `skills_dir` | string | — | Relative path to skill directories |
 | `log_retention` | int | 30 | Number of run logs to keep |
 | `env` | map | — | Environment variables (supports `${VAR}` references) |
 
@@ -146,14 +153,22 @@ Config changes (including `max_turns`) take effect on the next run without resta
 
 ### Skills
 
-Skills are markdown files in `skills_dir` that get injected into the bot's system prompt:
+Skills are directories containing a `SKILL.md` file with YAML frontmatter (`name` and `description`) and a markdown body. The harness parses frontmatter from all discovered skills and lists them by name and description in the system prompt. Claude loads full skill content on-demand via the Skill tool.
+
+Skills are discovered from three locations (first occurrence of a name wins):
+
+1. `~/.agents/skills/` — cross-agent shared skills
+2. `~/.botctl/skills/` — botctl-wide shared skills
+3. Bot's `skills_dir` — per-bot skills
 
 ```
 my-bot/
   BOT.md
   skills/
-    api-access.md
-    safety-rules.md
+    api-access/
+      SKILL.md
+    safety-rules/
+      SKILL.md
   workspace/
 ```
 
@@ -166,7 +181,9 @@ my-bot/
   bots/
     my-bot/
       BOT.md             # Bot config + prompt
-      skills/            # Skill files (optional)
+      skills/            # Skill directories (optional)
+        my-skill/
+          SKILL.md
       workspace/         # Local workspace
       logs/              # Per-run log files
 ```
