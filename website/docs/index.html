@@ -199,7 +199,11 @@ nav {
   align-self: start;
   max-height: calc(100vh - 112px);
   overflow-y: auto;
+  scrollbar-color: var(--border) transparent;
 }
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .sidebar-section {
   margin-bottom: 28px;
