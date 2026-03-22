@@ -627,6 +627,9 @@ func (m *model) initLogView() {
 }
 
 func (m *model) refreshBots() {
+	// Remember which bot is selected so we can restore after re-sort
+	prevName := m.cursorBotName()
+
 	bots, _ := m.svc.ListBots(m.filter.Value())
 	m.botCache = make(map[string]*service.BotInfo, len(bots))
 	m.botNames = make([]string, 0, len(bots))
@@ -715,6 +718,16 @@ func (m *model) refreshBots() {
 	}
 	if len(rows) == 0 {
 		m.cursor = 0
+	}
+
+	// Restore cursor to the previously selected bot after re-sort
+	if prevName != "" {
+		for i, name := range m.botNames {
+			if name == prevName {
+				m.cursor = i
+				break
+			}
+		}
 	}
 
 	// Clamp tableOffset and set only visible rows
