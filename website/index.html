@@ -1756,6 +1756,7 @@ Review open PRs and post comments...</div>
       <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://github.com/montanaflynn/botctl/releases" target="_blank" rel="noopener">Releases</a></li>
       <li><a href="https://github.com/montanaflynn/botctl/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl/commit/__GIT_COMMIT__" target="_blank" rel="noopener" class="footer-commit">__GIT_COMMIT_SHORT__</a></li>
     </ul>
   </div>
 </footer>
@@ -2147,6 +2148,55 @@ Review open PRs and post comments...</div>
       var parts = cmd.trim().split(/\s+/);
       var base = parts[0];
 
+      var cwd = '/Users/you/.botctl/bots/weather-bot';
+
+      // Fake filesystem
+      var fs = {
+        '/Users/you/.botctl/bots/weather-bot': {
+          type: 'dir',
+          children: ['BOT.md', 'boot.log', 'logs/', 'skills/', 'workspace/']
+        },
+        '/Users/you/.botctl/bots/weather-bot/logs': {
+          type: 'dir',
+          children: ['20260322-091200.log', '20260322-083000.log', '20260321-220500.log']
+        },
+        '/Users/you/.botctl/bots/weather-bot/skills': {
+          type: 'dir',
+          children: ['weather-api/', 'alert-rules/']
+        },
+        '/Users/you/.botctl/bots/weather-bot/skills/weather-api': {
+          type: 'dir',
+          children: ['SKILL.md']
+        },
+        '/Users/you/.botctl/bots/weather-bot/skills/alert-rules': {
+          type: 'dir',
+          children: ['SKILL.md']
+        },
+        '/Users/you/.botctl/bots/weather-bot/workspace': {
+          type: 'dir',
+          children: ['state.json', 'cache/']
+        }
+      };
+
+      var files = {
+        'BOT.md': '---\nname: weather-bot\ninterval_seconds: 300\nmax_turns: 20\nworkspace: local\nskills_dir: ./skills\n---\nYou are an autonomous weather monitor.\nCheck conditions every 5 minutes and\nalert on severe weather events.',
+        'boot.log': '[2026-03-22 09:12:00] Harness started (pid 48201)\n[2026-03-22 09:12:01] Loading BOT.md config...\n[2026-03-22 09:12:01] Skills: weather-api, alert-rules\n[2026-03-22 09:12:02] Starting run #47\n[2026-03-22 09:12:03] Checking NWS API for alerts...\n[2026-03-22 09:12:05] No severe weather. Sleeping 300s.',
+        'skills/weather-api/SKILL.md': '---\nname: weather-api\ndescription: Query NWS and OpenWeather APIs\n---\nUse the National Weather Service API for\nUS forecasts and alerts. Fall back to\nOpenWeather for international locations.',
+        'skills/alert-rules/SKILL.md': '---\nname: alert-rules\ndescription: Severity thresholds and notification rules\n---\nAlert on: tornado warnings, flash floods,\nhurricane watches. Post to #weather-alerts\nSlack channel via webhook.',
+        'workspace/state.json': '{\n  "last_check": "2026-03-22T09:12:05Z",\n  "alerts_sent": 142,\n  "regions": ["US-CA", "US-NY", "US-TX"]\n}',
+        'logs/20260322-091200.log': '[run #47] turn 1/20\n  Bash: curl -s api.weather.gov/alerts\n  No active alerts for monitored regions.\n  Run complete. Cost: $0.03',
+        'logs/20260322-083000.log': '[run #46] turn 1/20\n  Bash: curl -s api.weather.gov/alerts\n  No active alerts.\n  Run complete. Cost: $0.02',
+        'logs/20260321-220500.log': '[run #45] turn 1/20\n  Wind advisory issued for US-CA.\n  Bash: curl -X POST webhook.slack.com/...\n  Alert posted to #weather-alerts.\n  Run complete. Cost: $0.08'
+      };
+
+      function resolvePath(p) {
+        if (!p) return cwd;
+        if (p.startsWith('/')) return p;
+        if (p === '..') return cwd.substring(0, cwd.lastIndexOf('/')) || '/';
+        var resolved = cwd + '/' + p.replace(/\/$/, '');
+        return resolved;
+      }
+
       if (cmd.trim() === '') {
         shellHistory.innerHTML += line;
       } else if (base === 'botctl') {
@@ -2154,19 +2204,56 @@ Review open PRs and post comments...</div>
         shellHistory.innerHTML += '<div class="shell-output">Launching dashboard...</div>';
         setTimeout(exitShell, 600);
         return;
+      } else if (base === 'cd') {
+        var target = parts[1] || '/Users/you/.botctl/bots/weather-bot';
+        if (target === '..') {
+          output = '<div class="shell-error">cd: permission denied: you can\'t leave your bot</div>';
+        } else {
+          var resolved = resolvePath(target);
+          if (fs[resolved]) {
+            cwd = resolved;
+          } else {
+            output = '<div class="shell-error">cd: no such directory: ' + escHtml(target) + '</div>';
+          }
+        }
       } else if (base === 'ls') {
-        output = '<div class="shell-output">BOT.md        boot.log      logs/         skills/       workspace/</div>';
+        var target = parts[1] ? resolvePath(parts[1]) : cwd;
+        var dir = fs[target];
+        if (dir) {
+          output = '<div class="shell-output">' + dir.children.join('    ') + '</div>';
+        } else {
+          output = '<div class="shell-error">ls: ' + escHtml(parts[1] || '.') + ': No such file or directory</div>';
+        }
       } else if (base === 'pwd') {
-        output = '<div class="shell-output">/Users/you/.botctl/bots/weather-bot</div>';
+        output = '<div class="shell-output">' + cwd + '</div>';
       } else if (base === 'whoami') {
         output = '<div class="shell-fun">botctl operator (root access to all bots)</div>';
-      } else if (base === 'cat' && cmd.indexOf('BOT.md') !== -1) {
-        output = '<div class="shell-output">---\nname: weather-bot\ninterval_seconds: 300\nmax_turns: 20\n---\nYou are an autonomous weather monitor...</div>';
+      } else if (base === 'cat' || base === 'head' || base === 'tail') {
+        var file = parts[1];
+        if (!file) {
+          output = '<div class="shell-error">' + base + ': missing file argument</div>';
+        } else {
+          var cleaned = file.replace(/^\.\//, '').replace(/\/$/, '');
+          // Check if it's a directory
+          var dirPath = resolvePath(cleaned);
+          if (fs[dirPath]) {
+            output = '<div class="shell-error">' + base + ': ' + escHtml(file) + ': Is a directory</div>';
+          } else {
+            var content = files[cleaned];
+            if (content) {
+              output = '<div class="shell-output">' + escHtml(content) + '</div>';
+            } else {
+              output = '<div class="shell-error">' + base + ': ' + escHtml(file) + ': No such file or directory</div>';
+            }
+          }
+        }
+      } else if (base === 'tree') {
+        output = '<div class="shell-output">.\n├── BOT.md\n├── boot.log\n├── logs/\n│   ├── 20260322-091200.log\n│   ├── 20260322-083000.log\n│   └── 20260321-220500.log\n├── skills/\n│   ├── weather-api/\n│   │   └── SKILL.md\n│   └── alert-rules/\n│       └── SKILL.md\n└── workspace/\n    ├── state.json\n    └── cache/</div>';
       } else if (base === 'clear') {
         shellHistory.innerHTML = '';
         return;
       } else if (base === 'help') {
-        output = '<div class="shell-output">Available: botctl, ls, pwd, cat BOT.md, whoami, clear, exit</div>';
+        output = '<div class="shell-output">Available: botctl, ls, cd, cat, tree, pwd, whoami, clear, exit</div>';
       } else if (base === 'exit') {
         output = '<div class="shell-fun">Where would you go? Run botctl.</div>';
       } else if (cmd.indexOf('rm') !== -1 && cmd.indexOf('-rf') !== -1) {
@@ -2181,6 +2268,10 @@ Review open PRs and post comments...</div>
         output = '<div class="shell-fun">This is a Go household. Run botctl.</div>';
       } else if (base === 'docker') {
         output = '<div class="shell-fun">No containers needed. It\'s a single binary.</div>';
+      } else if (base === 'ssh') {
+        output = '<div class="shell-fun">You\'re already inside. The bots are the machine.</div>';
+      } else if (base === 'git') {
+        output = '<div class="shell-fun">The bots handle version control. Trust the process.</div>';
       } else {
         output = '<div class="shell-error">' + escHtml(base) + ': command not found</div>';
       }
@@ -2219,10 +2310,25 @@ Review open PRs and post comments...</div>
         cmdBuffer = cmdBuffer.slice(0, -1);
         shellInput.textContent = cmdBuffer;
       } else if (e.key === 'Tab') {
-        // Autocomplete botctl
-        if ('botctl'.indexOf(cmdBuffer) === 0 && cmdBuffer.length > 0) {
-          cmdBuffer = 'botctl';
-          shellInput.textContent = cmdBuffer;
+        // Autocomplete commands and file paths
+        var completions = ['botctl', 'ls', 'cd', 'cat', 'tree', 'pwd', 'whoami', 'clear', 'help', 'exit'];
+        var parts = cmdBuffer.split(/\s+/);
+        if (parts.length <= 1) {
+          var match = completions.find(function(c) { return c.indexOf(cmdBuffer) === 0 && cmdBuffer.length > 0; });
+          if (match) { cmdBuffer = match; shellInput.textContent = cmdBuffer; }
+        } else {
+          // File/dir completion
+          var prefix = parts[parts.length - 1];
+          var dir = fs[cwd];
+          var fileKeys = Object.keys(files);
+          var candidates = (dir ? dir.children : []).concat(fileKeys).filter(function(f) {
+            return f.indexOf(prefix) === 0 && f !== prefix;
+          });
+          if (candidates.length === 1) {
+            parts[parts.length - 1] = candidates[0].replace(/\/$/, '');
+            cmdBuffer = parts.join(' ');
+            shellInput.textContent = cmdBuffer;
+          }
         }
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
         cmdBuffer += e.key;
