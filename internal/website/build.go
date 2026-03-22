@@ -5,6 +5,7 @@ import (
 	"html"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -20,6 +21,15 @@ func InjectHelp(srcHTML, helpText string) string {
 		parts := preRe.FindStringSubmatch(match)
 		return parts[1] + escaped + parts[3]
 	})
+}
+
+// InjectCommit replaces __GIT_TAG__ placeholders with the latest git tag.
+func InjectCommit(src string) string {
+	tag, err := exec.Command("git", "describe", "--tags", "--abbrev=0").Output()
+	if err != nil {
+		return strings.ReplaceAll(src, "__GIT_TAG__", "dev")
+	}
+	return strings.ReplaceAll(src, "__GIT_TAG__", strings.TrimSpace(string(tag)))
 }
 
 // Build copies the entire source dir to outDir, processing HTML files

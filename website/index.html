@@ -1315,7 +1315,9 @@ footer {
   font-weight: 700;
   color: var(--text-dim);
   letter-spacing: 1.5px;
+  text-decoration: none;
 }
+.footer-logo:hover { opacity: 0.8; }
 
 .footer-links {
   display: flex;
@@ -1750,13 +1752,13 @@ Review open PRs and post comments...</div>
 <!-- ── Footer ──────────────────────────────── -->
 <footer>
   <div class="footer-inner">
-    <div class="footer-logo">BOTCTL</div>
+    <a href="/" class="footer-logo">BOTCTL</a>
     <ul class="footer-links">
       <li><a href="/docs">Docs</a></li>
       <li><a href="https://github.com/montanaflynn/botctl" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://github.com/montanaflynn/botctl/releases" target="_blank" rel="noopener">Releases</a></li>
       <li><a href="https://github.com/montanaflynn/botctl/issues" target="_blank" rel="noopener">Issues</a></li>
-      <li><a href="https://github.com/montanaflynn/botctl/commit/__GIT_COMMIT__" target="_blank" rel="noopener" class="footer-commit">__GIT_COMMIT_SHORT__</a></li>
+      <li><a href="https://github.com/montanaflynn/botctl/releases/tag/__GIT_TAG__" target="_blank" rel="noopener">__GIT_TAG__</a></li>
     </ul>
   </div>
 </footer>

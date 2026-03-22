@@ -35,7 +35,7 @@ func Serve(dir string, port int, helpText string) error {
 				return
 			}
 
-			result := InjectHelp(string(raw), helpText)
+			result := InjectCommit(InjectHelp(string(raw), helpText))
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write([]byte(result))
 			return

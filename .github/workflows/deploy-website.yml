@@ -12,11 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject git commit into HTML
+      - name: Inject git tag into HTML
         run: |
-          COMMIT=$(git rev-parse HEAD)
-          SHORT=$(git rev-parse --short HEAD)
-          find website -name '*.html' -exec sed -i "s/__GIT_COMMIT__/${COMMIT}/g; s/__GIT_COMMIT_SHORT__/${SHORT}/g" {} +
+          git fetch --tags
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          find website -name '*.html' -exec sed -i "s/__GIT_TAG__/${TAG}/g" {} +
 
       - name: Deploy via rsync
         env:
