@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
+	"github.com/montanaflynn/botctl/pkg/paths"
 	"github.com/montanaflynn/botctl/pkg/service"
+	"github.com/montanaflynn/botctl/pkg/skills"
 )
 
 type handler struct {
-	svc *service.Service
+	svc       *service.Service
+	skillsSvc *skills.SkillsService
 }
 
 type botInfoJSON struct {
@@ -262,4 +266,87 @@ func (h *handler) getStats(w http.ResponseWriter, r *http.Request) {
 		TotalCost:    s.TotalCost,
 		TotalTurns:   s.TotalTurns,
 	})
+}
+
+// Skills handlers
+
+func (h *handler) listSkills(w http.ResponseWriter, r *http.Request) {
+	bot := r.URL.Query().Get("bot")
+	found := h.skillsSvc.List(bot)
+	type skillJSON struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Source      string `json:"source"`
+	}
+	result := make([]skillJSON, 0, len(found))
+	for _, s := range found {
+		result = append(result, skillJSON{Name: s.Name, Description: s.Description, Source: s.Source})
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *handler) searchSkills(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		writeError(w, http.StatusBadRequest, "q parameter is required")
+		return
+	}
+	limit := 20
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	results, err := h.skillsSvc.Search(q, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, results)
+}
+
+func (h *handler) viewSkill(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	repo := r.URL.Query().Get("repo")
+	result, err := h.skillsSvc.View(name, repo)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *handler) addSkill(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Source  string `json:"source"`
+		Skill   string `json:"skill"`
+		DestDir string `json:"dest_dir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Source == "" {
+		writeError(w, http.StatusBadRequest, "source is required")
+		return
+	}
+	destDir := body.DestDir
+	if destDir == "" {
+		destDir = paths.GlobalSkillsDir()
+	}
+	installed, err := h.skillsSvc.Install(body.Source, skills.InstallOpts{
+		SkillFilter: body.Skill,
+		DestDir:     destDir,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, actionResponse{OK: true, Message: fmt.Sprintf("installed: %s", installed)})
+}
+
+func (h *handler) removeSkill(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	removed, err := h.skillsSvc.Remove(name)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeOK(w, fmt.Sprintf("removed %s from %d location(s)", name, len(removed)))
 }

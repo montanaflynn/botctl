@@ -40,7 +40,7 @@ type LogEntry struct {
 
 // migrateDBLocation moves DB files from ~/.botctl/botctl.db to ~/.botctl/data/botctl.db.
 func migrateDBLocation() {
-	home := paths.MMHome()
+	home := paths.HomeDir()
 	oldPath := filepath.Join(home, "botctl.db")
 	newPath := paths.DBFile()
 	if oldPath == newPath {

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 )
 
-// MMHome returns the root directory, respecting MM_HOME env var.
-func MMHome() string {
+// HomeDir returns the root directory, respecting MM_HOME env var.
+func HomeDir() string {
 	if v := os.Getenv("MM_HOME"); v != "" {
 		return v
 	}
@@ -15,13 +15,13 @@ func MMHome() string {
 }
 
 // BotsDir returns the directory containing bot definitions.
-func BotsDir() string { return filepath.Join(MMHome(), "bots") }
+func BotsDir() string { return filepath.Join(HomeDir(), "bots") }
 
 // WorkspaceDir returns the shared workspace directory.
-func WorkspaceDir() string { return filepath.Join(MMHome(), "workspace") }
+func WorkspaceDir() string { return filepath.Join(HomeDir(), "workspace") }
 
 // DataDir returns the directory for database files.
-func DataDir() string { return filepath.Join(MMHome(), "data") }
+func DataDir() string { return filepath.Join(HomeDir(), "data") }
 
 // DBFile returns the path to the SQLite database.
 func DBFile() string { return filepath.Join(DataDir(), "botctl.db") }
@@ -36,7 +36,7 @@ func RunLogFile(name, filename string) string { return filepath.Join(BotLogDir(n
 func BootLogFile(name string) string { return filepath.Join(BotLogDir(name), "boot.log") }
 
 // StateDir returns the legacy runtime state directory (for migration only).
-func StateDir() string { return filepath.Join(MMHome(), "run") }
+func StateDir() string { return filepath.Join(HomeDir(), "run") }
 
 // LegacyPidFile returns the legacy PID file path (for migration only).
 func LegacyPidFile(name string) string { return filepath.Join(StateDir(), name+".pid") }
@@ -46,6 +46,15 @@ func LegacyLogFile(name string) string { return filepath.Join(StateDir(), name+"
 
 // LegacyStatsFile returns the legacy stats JSON path (for migration only).
 func LegacyStatsFile(name string) string { return filepath.Join(StateDir(), name+".stats.json") }
+
+// AgentsSkillsDir returns the cross-agent shared skills directory.
+func AgentsSkillsDir() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".agents", "skills")
+}
+
+// GlobalSkillsDir returns the botctl-wide shared skills directory.
+func GlobalSkillsDir() string { return filepath.Join(HomeDir(), "skills") }
 
 // EnsureDirs creates all required directories.
 func EnsureDirs() error {

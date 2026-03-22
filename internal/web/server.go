@@ -13,6 +13,7 @@ import (
 
 	"github.com/montanaflynn/botctl/pkg/db"
 	"github.com/montanaflynn/botctl/pkg/service"
+	"github.com/montanaflynn/botctl/pkg/skills"
 )
 
 //go:embed static
@@ -26,7 +27,7 @@ func Serve(port int) error {
 	}
 	defer database.Close()
 
-	h := &handler{svc: service.New(database)}
+	h := &handler{svc: service.New(database), skillsSvc: skills.NewService()}
 
 	mux := http.NewServeMux()
 
@@ -43,6 +44,13 @@ func Serve(port int) error {
 	mux.HandleFunc("GET /api/bots/{name}/logs", h.getBotLogs)
 	mux.HandleFunc("GET /api/bots/{name}/logs/stream", h.streamBotLogs)
 	mux.HandleFunc("GET /api/stats", h.getStats)
+
+	// Skills API routes
+	mux.HandleFunc("GET /api/skills", h.listSkills)
+	mux.HandleFunc("GET /api/skills/search", h.searchSkills)
+	mux.HandleFunc("GET /api/skills/{name}", h.viewSkill)
+	mux.HandleFunc("POST /api/skills/add", h.addSkill)
+	mux.HandleFunc("DELETE /api/skills/{name}", h.removeSkill)
 
 	// Static files
 	static, err := fs.Sub(staticFiles, "static")

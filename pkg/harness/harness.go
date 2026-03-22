@@ -15,6 +15,7 @@ import (
 	"github.com/montanaflynn/botctl/pkg/db"
 	"github.com/montanaflynn/botctl/pkg/logs"
 	"github.com/montanaflynn/botctl/pkg/paths"
+	"github.com/montanaflynn/botctl/pkg/skills"
 	claude "github.com/montanaflynn/claude-agent-sdk-go"
 )
 
@@ -100,17 +101,22 @@ func splitFormatted(s string) (heading, body string) {
 // If resumeSession is non-empty, the task resumes that session instead of starting fresh.
 // If interruptCh is non-nil, the query can be interrupted between turns.
 func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64, database *db.DB, botID string, feedback string, resumeSession string, interruptCh <-chan struct{}) *claude.ResultMessage {
-	var skillsLine string
+	var skillsDirs []string
+	for _, candidate := range []string{paths.AgentsSkillsDir(), paths.GlobalSkillsDir()} {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			skillsDirs = append(skillsDirs, candidate)
+		}
+	}
 	if cfg.SkillsDir != "" {
 		skillsPath := filepath.Join(botDir, cfg.SkillsDir)
 		if abs, err := filepath.Abs(skillsPath); err == nil {
 			skillsPath = abs
 		}
-		skillsLine = fmt.Sprintf(
-			"Your skills directory is %s. Read every file in it — each one is an instruction you must follow.",
-			skillsPath,
-		)
+		if info, err := os.Stat(skillsPath); err == nil && info.IsDir() {
+			skillsDirs = append(skillsDirs, skillsPath)
+		}
 	}
+	skillsLine := skills.FormatPrompt(skills.Discover(skillsDirs))
 
 	systemPrompt := fmt.Sprintf(
 		"You are an autonomous agent managed by `botctl`.\nWorkspace directory: %s\n%s\n\nYour full instructions are in the user message below. Follow them.",
@@ -359,7 +365,7 @@ func Run(botDir string, once bool, message string) error {
 		database.InsertLogEntry(id, runID, "run_header", runHeader, "")
 
 		// Set up per-run interrupt channel: forwards wake signals to SDK
-		interruptCh := make(chan struct{})
+		interruptCh := make(chan struct{}, 1)
 		stopForward := startInterruptForwarder(wakeCh, interruptCh, database, id)
 
 		result := runTask(absDir, cfg, workspace, runID, database, id, feedback, resumeSession, interruptCh)
