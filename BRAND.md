@@ -20,7 +20,7 @@ A process manager for autonomous AI agent bots.
 Run autonomous AI agent bots from a single CLI. Terminal dashboard, web UI, declarative config, and session management.
 
 **Long:**
-botctl is a process manager for autonomous AI agent bots. It manages persistent agents that run on a schedule, with each bot configured via a declarative BOT.md file. The system includes a CLI, TUI dashboard for monitoring and controlling bots, a web UI, background harness processes for execution, and SQLite database for state and logs.
+botctl is a process manager for autonomous AI agent bots. It manages persistent agents that run on a schedule, with each bot configured via a declarative BOT.md file. The system includes a CLI, TUI dashboard for monitoring and controlling bots, a web UI, background harness processes for execution, and SQLite database for state and logs. Skills can be searched, installed, and shared from GitHub to extend bot capabilities.
 
 ## Colors
 
@@ -75,12 +75,7 @@ botctl is a process manager for autonomous AI agent bots. It manages persistent 
 
 ## Logo / Favicon
 
-Terminal prompt style: `$_` in lime green on transparent background.
-
-Inline SVG favicon:
-```
-data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text x='2' y='26' font-family='monospace' font-size='28' fill='%2300ff41'>$_</text></svg>
-```
+Dollar sign (`$`) icon in dim text on dark background. PNG favicon at `/favicon.png`.
 
 ## OG Image
 
