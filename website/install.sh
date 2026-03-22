@@ -62,11 +62,17 @@ fi
 
 chmod +x "$TMP"
 
-echo "Installing to ${INSTALL_DIR}/botctl..."
+# Install to /usr/local/bin if writable, otherwise ~/.local/bin
 if [ -w "$INSTALL_DIR" ]; then
     mv "$TMP" "${INSTALL_DIR}/botctl"
 else
-    sudo mv "$TMP" "${INSTALL_DIR}/botctl"
+    INSTALL_DIR="${HOME}/.local/bin"
+    mkdir -p "$INSTALL_DIR"
+    mv "$TMP" "${INSTALL_DIR}/botctl"
+    case ":$PATH:" in
+        *":${INSTALL_DIR}:"*) ;;
+        *) echo "Add ${INSTALL_DIR} to your PATH:"; echo "  export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
+    esac
 fi
 
-echo "botctl ${LATEST} installed successfully"
+echo "botctl ${LATEST} installed to ${INSTALL_DIR}/botctl"
