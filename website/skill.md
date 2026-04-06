@@ -196,7 +196,7 @@ botctl stop my-bot        # stop completely
 
 ## Environment Variables
 
-- `MM_HOME` — override the default `~/.botctl` data directory
+- `BOTCTL_HOME` — override the default `~/.botctl` data directory
 
 Bot configs support an `env` map with `${VAR}` references resolved from the OS environment:
 

@@ -8,7 +8,7 @@ import (
 func openTestDB(t *testing.T) *DB {
 	t.Helper()
 	tmp := t.TempDir()
-	t.Setenv("MM_HOME", tmp)
+	t.Setenv("BOTCTL_HOME", tmp)
 	d, err := Open()
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -19,7 +19,7 @@ func openTestDB(t *testing.T) *DB {
 
 func TestOpenCreatesDatabase(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("MM_HOME", tmp)
+	t.Setenv("BOTCTL_HOME", tmp)
 	d, err := Open()
 	if err != nil {
 		t.Fatalf("Open: %v", err)

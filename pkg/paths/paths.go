@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 )
 
-// HomeDir returns the root directory, respecting MM_HOME env var.
+// HomeDir returns the root directory, respecting BOTCTL_HOME env var.
 func HomeDir() string {
-	if v := os.Getenv("MM_HOME"); v != "" {
+	if v := os.Getenv("BOTCTL_HOME"); v != "" {
 		return v
 	}
 	home, _ := os.UserHomeDir()
