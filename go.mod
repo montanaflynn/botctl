@@ -12,6 +12,8 @@ require (
 	modernc.org/sqlite v1.44.3
 )
 
+replace github.com/montanaflynn/claude-agent-sdk-go => ./claude-agent-sdk-go
+
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -45,5 +47,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
-
-replace github.com/montanaflynn/claude-agent-sdk-go => ./claude-agent-sdk-go
