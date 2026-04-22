@@ -81,11 +81,14 @@ You are a bot that does a specific task. Each run you should:
 | `name` | string | folder name | Display name |
 | `id` | string | folder name | Stable DB key (survives renames) |
 | `interval_seconds` | int | 60 | Seconds between runs |
-| `max_turns` | int | - | Max Claude API turns per run |
+| `max_turns` | int | - | Max agent turns per run |
 | `workspace` | string | - | `local` (per-bot) or `shared` (global) |
 | `skills_dir` | string | - | Relative path to skill directories |
 | `env` | map | - | Environment variables (`${VAR}` resolved from OS) |
 | `log_retention` | int | 30 | Number of log files to keep |
+| `backend` | string | `claude` | Agent runtime: `claude` or `opencode` |
+| `model` | string | - | Model ID. Required when `backend: opencode` |
+| `provider` | string | - | Provider prefix for opencode (e.g. `openrouter`). Combined as `provider/model` |
 
 ### System Prompt
 

@@ -603,8 +603,31 @@ weather APIs and alerts on severe storms.
           <tr><td>log_dir</td><td>string</td><td>Custom log directory. Default: logs/</td></tr>
           <tr><td>log_retention</td><td>int</td><td>Number of run logs to keep before pruning. Default: 30</td></tr>
           <tr><td>env</td><td>map</td><td>Environment variables. Supports <code>${VAR}</code> references to system env.</td></tr>
+          <tr><td>backend</td><td>string</td><td>Agent runtime: <code>claude</code> (default) or <code>opencode</code>.</td></tr>
+          <tr><td>model</td><td>string</td><td>Model ID. Required when <code>backend: opencode</code>. Ignored by the claude backend (Claude Code picks the model).</td></tr>
+          <tr><td>provider</td><td>string</td><td>Provider prefix passed to opencode (e.g. <code>openrouter</code>, <code>anthropic</code>). Combined with <code>model</code> as <code>provider/model</code>.</td></tr>
         </tbody>
       </table>
+    </section>
+
+    <!-- Backends -->
+    <section class="docs-section" id="backends">
+      <div class="section-label">Backends</div>
+      <p>botctl runs bots through a pluggable backend. The default is <code>claude</code>, which uses the Claude Agent SDK. An <code>opencode</code> backend shells out to <a href="https://opencode.ai">opencode</a>'s CLI, letting you run bots on any model opencode supports (OpenAI, Anthropic, OpenRouter, local Ollama, etc.).</p>
+      <div class="code-block">
+        <div class="code-header">BOT.md using opencode via OpenRouter</div>
+        <div class="code-body"><span class="comment">---</span>
+<span class="key">name</span>: <span class="str">cheap-bot</span>
+<span class="key">backend</span>: <span class="str">opencode</span>
+<span class="key">provider</span>: <span class="str">openrouter</span>
+<span class="key">model</span>: <span class="str">openai/gpt-oss-120b</span>
+<span class="key">interval_seconds</span>: <span class="num">600</span>
+<span class="key">max_turns</span>: <span class="num">5</span>
+<span class="comment">---</span>
+
+You are a budget-conscious research bot...</div>
+      </div>
+      <p>The opencode backend requires the <code>opencode</code> CLI installed and authed with at least one provider (<code>opencode auth login</code>). Permissions are auto-approved via <code>--dangerously-skip-permissions</code> so the harness runs headless.</p>
     </section>
 
     <!-- Skills -->

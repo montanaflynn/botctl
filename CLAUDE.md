@@ -30,7 +30,8 @@ This repo (`botctl`) is the open-source CLI. A private repo (`botctl-platform`) 
 
 **`pkg/` (shared library):**
 - `config` — Parses `BOT.md` files (YAML frontmatter + markdown body). Handles `${VAR}` env expansion and defaults.
-- `harness` — Core execution loop. Reloads config each iteration, runs Claude via the SDK, records stats, handles pause/resume/interrupt, sleeps for interval.
+- `backend` — Pluggable agent runtime abstraction. `backend.Backend` interface with `Query()`, provider-neutral `MessageEvent`/`ContentBlock`/`Options`/`Result` types. Subpackages `claude/` (wraps `claude-agent-sdk-go`) and `opencode/` (spawns `opencode run --format json`) self-register via `init()`. Selected per-bot via `backend:` in BOT.md frontmatter (default `claude`).
+- `harness` — Core execution loop. Reloads config each iteration, runs the configured backend's `Query()`, records stats, handles pause/resume/interrupt, sleeps for interval.
 - `db` — SQLite layer (WAL mode). Tables: runs, messages, log_entries, bot_state. Tracks run lifecycle, bot state + session, structured logs, cost/turn stats.
 - `service` — Business logic facade over db + process. Start/stop/pause/play/message bots, query stats and logs.
 - `process` — Spawns harness as a subprocess, manages PID lifecycle, SIGTERM→SIGKILL with timeout. Platform-specific files for Unix vs Windows.
@@ -48,11 +49,11 @@ This repo (`botctl`) is the open-source CLI. A private repo (`botctl-platform`) 
 - `update` — Self-update mechanism.
 
 **`claude-agent-sdk-go/` (local replace):**
-Go SDK wrapping the Claude CLI as a subprocess. Single entry point `claude.Query()`. Communicates via stream-json over stdin/stdout. See `claude-agent-sdk-go/CLAUDE.md` for details.
+Go SDK wrapping the Claude CLI as a subprocess. Used by the `pkg/backend/claude` backend as its single entry point. Communicates via stream-json over stdin/stdout. See `claude-agent-sdk-go/CLAUDE.md` for details.
 
 ### Key Flows
 
-**Bot execution:** `cli.start` → `process.StartBot()` spawns `botctl harness` subprocess → `harness.Run()` loops: reload config → check message queue → `claude.Query()` → record stats → sleep for interval.
+**Bot execution:** `cli.start` → `process.StartBot()` spawns `botctl harness` subprocess → `harness.Run()` loops: reload config → check message queue → `backend.Get(cfg.Backend).Query()` → record stats → sleep for interval.
 
 **State transitions:** stopped → running → sleeping ↔ paused. Session IDs are persisted for resume after max_turns.
 
