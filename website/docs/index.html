@@ -531,6 +531,7 @@ footer {
       <div class="section-label">Overview</div>
       <p><code>botctl</code> is a process manager for autonomous AI bots. Each bot is defined by a single <code>BOT.md</code> file — YAML config and a markdown prompt. The harness runs each bot in a loop: execute, log, sleep, repeat. No servers, no infrastructure, just a Go binary.</p>
       <p>Bots persist across runs with session memory. You can send messages, resume sessions, and monitor everything from a TUI, web dashboard, or CLI.</p>
+      <p>Pluggable <a href="#backends" style="color: var(--green);">backends</a> let each bot pick its agent runtime — <code>claude</code> (default) or <code>opencode</code>, which opens the door to OpenRouter, OpenAI, Anthropic, and local Ollama models.</p>
     </section>
 
     <!-- Installation -->
