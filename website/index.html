@@ -1588,13 +1588,14 @@ Review open PRs and post comments...</div>
       </div>
       <div class="arch-card">
         <div class="arch-card-header">
-          <div class="arch-card-title"><span class="hl-purple">Hot</span> reload</div>
+          <div class="arch-card-title"><span class="hl-purple">Pluggable</span> backends</div>
           <div class="arch-card-num">04</div>
         </div>
-        <div class="arch-card-text">Edit <code>BOT.md</code> and the next run picks up changes. No restarts, no deploys, no downtime.</div>
-        <div class="arch-card-snippet"><span class="cm"># change max_turns in BOT.md</span>
-<span class="str">max_turns</span>: <span class="num">20</span>  <span class="cm">&rarr;</span>  <span class="str">max_turns</span>: <span class="num">50</span>
-<span class="cm"># next run uses new value automatically</span></div>
+        <div class="arch-card-text">Run bots on Claude or opencode — OpenRouter, OpenAI, Anthropic, local Ollama, or anything else opencode supports. Pick per bot.</div>
+        <div class="arch-card-snippet"><span class="cm"># in BOT.md</span>
+<span class="str">backend</span>: opencode
+<span class="str">provider</span>: openrouter
+<span class="str">model</span>: openai/gpt-oss-120b</div>
       </div>
       <div class="arch-card">
         <div class="arch-card-header">
