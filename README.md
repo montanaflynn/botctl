@@ -1,14 +1,14 @@
 <h1 align="center">botctl</h1>
-
-<p align="center">Process manager for autonomous AI agent bots. Run persistent agents from a single CLI with a terminal dashboard, web UI, and declarative configuration.</p>
-
-<p align="center">Pluggable agent backends: runs on <a href="https://claude.com/claude-code">Claude</a> out of the box, or swap in <a href="https://opencode.ai">opencode</a> to use OpenRouter, OpenAI, Anthropic, local Ollama, or any other model opencode supports.</p>
-
 <p align="center">
   <a href="https://botctl.dev">Website</a> ·
   <a href="https://botctl.dev/docs">Docs</a> ·
+  <a href="#install">Install</a> ·
   <a href="https://github.com/montanaflynn/botctl/releases">Releases</a>
 </p>
+
+Process manager for autonomous AI agent bots. Run persistent agents from a single CLI with a terminal dashboard, web UI, and declarative configuration.
+
+Pluggable agent backends: runs on <a href="https://claude.com/claude-code">Claude</a> out of the box, or swap in <a href="https://opencode.ai">opencode</a> to use OpenRouter, OpenAI, Gemini, local Ollama, or any other model provider opencode supports.
 
 <p align="center">
   <img src="website/tui-screenshot.png" alt="botctl TUI dashboard">
