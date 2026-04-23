@@ -22,6 +22,9 @@ type BotConfig struct {
 	Workspace       string            `yaml:"workspace"`
 	LogDir          string            `yaml:"log_dir"`
 	LogRetention    int               `yaml:"log_retention"`
+	Backend         string            `yaml:"backend"`
+	Model           string            `yaml:"model"`
+	Provider        string            `yaml:"provider"`
 	Body            string            `yaml:"-"`
 	Raw             map[string]any    `yaml:"-"`
 }
@@ -77,6 +80,10 @@ func FromMD(path string) (*BotConfig, error) {
 		if v, ok := raw["log_retention"].(int); ok && v > 0 {
 			cfg.LogRetention = v
 		}
+	}
+
+	if cfg.Backend == "opencode" && cfg.Model == "" {
+		return nil, fmt.Errorf("backend=opencode requires a `model` field in frontmatter")
 	}
 
 	return &cfg, nil

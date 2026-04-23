@@ -11,12 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/montanaflynn/botctl/pkg/backend"
 	"github.com/montanaflynn/botctl/pkg/config"
 	"github.com/montanaflynn/botctl/pkg/db"
 	"github.com/montanaflynn/botctl/pkg/logs"
 	"github.com/montanaflynn/botctl/pkg/paths"
 	"github.com/montanaflynn/botctl/pkg/skills"
-	claude "github.com/montanaflynn/claude-agent-sdk-go"
 )
 
 // resolveWorkspace returns the workspace directory for a bot.
@@ -96,11 +96,20 @@ func splitFormatted(s string) (heading, body string) {
 	return
 }
 
-// runTask executes a single Claude query for the bot.
+// runTask executes a single agent query for the bot using the configured backend.
 // If feedback is non-empty, it is appended to the prompt.
 // If resumeSession is non-empty, the task resumes that session instead of starting fresh.
 // If interruptCh is non-nil, the query can be interrupted between turns.
-func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64, database *db.DB, botID string, feedback string, resumeSession string, interruptCh <-chan struct{}) *claude.ResultMessage {
+func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64, database *db.DB, botID string, feedback string, resumeSession string, interruptCh <-chan struct{}) *backend.Result {
+	be, err := backend.Get(cfg.Backend)
+	if err != nil {
+		fmt.Printf("  error: %v\n", err)
+		if database != nil && botID != "" {
+			database.InsertLogEntry(botID, runID, "error", "", err.Error())
+		}
+		return nil
+	}
+
 	var skillsDirs []string
 	for _, candidate := range []string{paths.AgentsSkillsDir(), paths.GlobalSkillsDir()} {
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
@@ -126,46 +135,41 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 		systemPrompt += fmt.Sprintf("\nYou have a maximum of %d turns. Plan your work to complete within this limit.", cfg.MaxTurns)
 	}
 
-	opts := claude.Options{
-		SystemPrompt:   systemPrompt,
-		Cwd:            workspace,
-		PermissionMode: "bypassPermissions",
-		MaxBufferSize:  10 * 1024 * 1024,
-		InterruptCh:    interruptCh,
-	}
-	if cfg.MaxTurns > 0 {
-		opts.MaxTurns = cfg.MaxTurns
+	opts := backend.Options{
+		SystemPrompt: systemPrompt,
+		Cwd:          workspace,
+		MaxTurns:     cfg.MaxTurns,
+		InterruptCh:  interruptCh,
+		Model:        cfg.Model,
+		Provider:     cfg.Provider,
 	}
 
 	var seq atomic.Int64
 
-	opts.EnvelopeHandler = func(env claude.AssistantEnvelope) {
-		msg := env.Message
-
+	handler := func(event backend.MessageEvent) {
 		// Log to stdout and write structured entries to DB
-		for _, block := range msg.Content {
-			switch {
-			case block.IsText():
+		for _, block := range event.Content {
+			switch block.Type {
+			case "text":
 				fmt.Println(block.Text)
 				if database != nil && botID != "" {
 					database.InsertLogEntry(botID, runID, "text", "", block.Text)
 				}
-			case block.IsToolUse():
-				formatted := formatToolUse(block.Name, block.InputJSON())
+			case "tool_use":
+				formatted := formatToolUse(block.Name, block.Input)
 				fmt.Println(formatted)
 				if database != nil && botID != "" {
 					h, b := splitFormatted(formatted)
 					database.InsertLogEntry(botID, runID, "tool_use", h, b)
 				}
-			case block.IsToolResult():
+			case "tool_result":
 				if block.IsError {
-					content := block.ContentString()
-					fmt.Printf("#### Error\n%s\n", content)
+					fmt.Printf("#### Error\n%s\n", block.Content)
 					if database != nil && botID != "" {
-						database.InsertLogEntry(botID, runID, "tool_error", "", content)
+						database.InsertLogEntry(botID, runID, "tool_error", "", block.Content)
 					}
 				} else {
-					content := block.ContentString()
+					content := block.Content
 					if len(content) > 500 {
 						content = content[:500] + fmt.Sprintf("... (%d chars)", len(content))
 					}
@@ -182,14 +186,7 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 		// Store raw message in database
 		if runID > 0 && database != nil {
 			n := int(seq.Add(1))
-			var inputTokens, outputTokens, cacheCreation, cacheRead int
-			if msg.Usage != nil {
-				inputTokens = msg.Usage.InputTokens
-				outputTokens = msg.Usage.OutputTokens
-				cacheCreation = msg.Usage.CacheCreationInputTokens
-				cacheRead = msg.Usage.CacheReadInputTokens
-			}
-			if err := database.InsertMessage(runID, n, msg.ID, msg.Model, inputTokens, outputTokens, cacheCreation, cacheRead, env.RawJSON); err != nil {
+			if err := database.InsertMessage(runID, n, event.MessageID, event.Model, event.InputTokens, event.OutputTokens, event.CacheCreation, event.CacheRead, event.RawJSON); err != nil {
 				fmt.Printf("warning: failed to store message: %v\n", err)
 			}
 		}
@@ -197,7 +194,6 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 
 	var prompt string
 	if resumeSession != "" {
-		// Resume a previous session (e.g. after max turns)
 		opts.SessionID = resumeSession
 		prompt = fmt.Sprintf("## Max turns reached (%d/%d)\n## Resumed by operator", cfg.MaxTurns, cfg.MaxTurns)
 		if feedback != "" {
@@ -214,7 +210,7 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 		}
 	}
 
-	result, err := claude.Query(context.Background(), prompt, opts, nil)
+	result, err := be.Query(context.Background(), prompt, opts, handler)
 	if err != nil {
 		fmt.Printf("  error: %v\n", err)
 		if database != nil && botID != "" {
@@ -224,8 +220,14 @@ func runTask(botDir string, cfg *config.BotConfig, workspace string, runID int64
 	}
 
 	if result != nil {
-		costLine := fmt.Sprintf("$%.4f | %d turns | %.1fs",
-			result.TotalCostUSD, result.NumTurns, float64(result.DurationMS)/1000)
+		var costLine string
+		if be.Capabilities().CostTracking {
+			costLine = fmt.Sprintf("$%.4f | %d turns | %.1fs",
+				result.TotalCostUSD, result.NumTurns, float64(result.DurationMS)/1000)
+		} else {
+			costLine = fmt.Sprintf("%d turns | %.1fs",
+				result.NumTurns, float64(result.DurationMS)/1000)
+		}
 		fmt.Printf("\n---\n%s\n", costLine)
 		if database != nil && botID != "" {
 			database.InsertLogEntry(botID, runID, "cost", "", costLine)
