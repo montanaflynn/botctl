@@ -19,10 +19,6 @@ case "$ARCH" in
     *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
 esac
 
-ASSET="botctl-${OS}-${ARCH}"
-TMP=$(mktemp)
-trap 'rm -f "$TMP"' EXIT
-
 # Get latest release tag
 LATEST=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
 if [ -z "$LATEST" ]; then
@@ -30,10 +26,15 @@ if [ -z "$LATEST" ]; then
     exit 1
 fi
 
+ASSET="botctl-${LATEST}-${OS}-${ARCH}.tar.gz"
 BASE_URL="https://github.com/${REPO}/releases/download/${LATEST}"
 
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+TARBALL="${TMPDIR}/${ASSET}"
+
 echo "Downloading botctl ${LATEST} (${OS}/${ARCH})..."
-curl -fsSL -o "$TMP" "${BASE_URL}/${ASSET}"
+curl -fsSL -o "$TARBALL" "${BASE_URL}/${ASSET}"
 
 # Verify checksum
 echo "Verifying checksum..."
@@ -45,9 +46,9 @@ if [ -z "$EXPECTED" ]; then
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
-    ACTUAL=$(sha256sum "$TMP" | awk '{print $1}')
+    ACTUAL=$(sha256sum "$TARBALL" | awk '{print $1}')
 elif command -v shasum >/dev/null 2>&1; then
-    ACTUAL=$(shasum -a 256 "$TMP" | awk '{print $1}')
+    ACTUAL=$(shasum -a 256 "$TARBALL" | awk '{print $1}')
 else
     echo "No sha256sum or shasum found" >&2
     exit 1
@@ -60,15 +61,22 @@ if [ "$ACTUAL" != "$EXPECTED" ]; then
     exit 1
 fi
 
-chmod +x "$TMP"
+# Extract
+tar -xzf "$TARBALL" -C "$TMPDIR"
+BIN="${TMPDIR}/botctl"
+if [ ! -f "$BIN" ]; then
+    echo "botctl binary not found in archive" >&2
+    exit 1
+fi
+chmod +x "$BIN"
 
 # Install to /usr/local/bin if writable, otherwise ~/.local/bin
 if [ -w "$INSTALL_DIR" ]; then
-    mv "$TMP" "${INSTALL_DIR}/botctl"
+    mv "$BIN" "${INSTALL_DIR}/botctl"
 else
     INSTALL_DIR="${HOME}/.local/bin"
     mkdir -p "$INSTALL_DIR"
-    mv "$TMP" "${INSTALL_DIR}/botctl"
+    mv "$BIN" "${INSTALL_DIR}/botctl"
     case ":$PATH:" in
         *":${INSTALL_DIR}:"*) ;;
         *) echo "Add ${INSTALL_DIR} to your PATH:"; echo "  export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
