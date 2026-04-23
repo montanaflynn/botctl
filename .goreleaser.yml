@@ -17,8 +17,11 @@ builds:
       - arm64
 
 archives:
-  - format: binary
-    name_template: "botctl-{{ .Os }}-{{ .Arch }}"
+  - format: tar.gz
+    name_template: "botctl-{{ .Tag }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
 
 changelog:
   sort: asc

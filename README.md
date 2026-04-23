@@ -20,6 +20,12 @@ Pluggable agent backends: runs on <a href="https://claude.com/claude-code">Claud
 curl -fsSL https://botctl.dev/install.sh | sh
 ```
 
+Or with Homebrew:
+
+```bash
+brew install montanaflynn/tap/botctl
+```
+
 Or with Go:
 
 ```bash
