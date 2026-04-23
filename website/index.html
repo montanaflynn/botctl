@@ -1477,7 +1477,7 @@ footer {
       <div class="hero-content">
         <div class="hero-badge">[ process manager for ai agents ]</div>
         <h1 class="hero-title" id="hero-title"></h1>
-        <p class="hero-subtitle">Manage persistent AI bots with a terminal dashboard, web UI, and declarative configuration.</p>
+        <p class="hero-subtitle">Manage persistent AI bots with a terminal dashboard, web UI, and declarative configuration. Works with Claude, opencode, and any model behind them — OpenRouter, OpenAI, Anthropic, local Ollama.</p>
         <div class="tabs hero-tabs">
           <div class="tab-bar">
             <button class="tab-btn active" data-tab="macos-linux">macOS / Linux</button>
@@ -1571,7 +1571,7 @@ Review open PRs and post comments...</div>
           <div class="arch-card-title"><span class="hl-blue">Autonomous</span> execution</div>
           <div class="arch-card-num">02</div>
         </div>
-        <div class="arch-card-text">Spawns Claude with your prompt, tools, and workspace. Runs, logs, and sleeps on a loop.</div>
+        <div class="arch-card-text">Spawns Claude or opencode with your prompt, tools, and workspace. Runs, logs, and sleeps on a loop.</div>
         <div class="arch-card-snippet"><span class="cm">$</span> botctl start code-reviewer <span class="cm">-d</span>
 <span class="str">&#10003;</span> Harness started (pid 48201)
 <span class="cm">$</span> botctl logs code-reviewer <span class="cm">-f</span>
@@ -1582,7 +1582,7 @@ Review open PRs and post comments...</div>
           <div class="arch-card-title"><span class="hl-amber">Session</span> memory</div>
           <div class="arch-card-num">03</div>
         </div>
-        <div class="arch-card-text">Every run saves its session. Resume where Claude left off, or send messages to redirect a running bot.</div>
+        <div class="arch-card-text">Every run saves its session. Resume where the agent left off, or send messages to redirect a running bot.</div>
         <div class="arch-card-snippet"><span class="cm">$</span> botctl start review <span class="cm">--message</span> <span class="str">"focus on PR 51"</span>
 <span class="str">&#10003;</span> Message queued, waking bot...</div>
       </div>

@@ -2,6 +2,8 @@
 
 Process manager for autonomous AI agent bots. Run persistent agents from a single CLI with a terminal dashboard, web UI, and declarative configuration.
 
+Pluggable agent backends: runs on [Claude](https://claude.com/claude-code) out of the box, or swap in [opencode](https://opencode.ai) to use OpenRouter, OpenAI, Anthropic, local Ollama, or any other model opencode supports.
+
 **[Website](https://botctl.dev)** &middot; **[Docs](https://botctl.dev/docs)** &middot; **[Releases](https://github.com/montanaflynn/botctl/releases)**
 
 ![botctl TUI dashboard](website/tui-screenshot.png)
@@ -117,12 +119,32 @@ You are an autonomous agent that...
 | `skills_dir` | string | — | Relative path to skill directories |
 | `log_retention` | int | 30 | Number of run logs to keep |
 | `env` | map | — | Environment variables (supports `${VAR}` references) |
+| `backend` | string | `claude` | Agent runtime: `claude` or `opencode` |
+| `model` | string | — | Model ID. Required when `backend: opencode` |
+| `provider` | string | — | Provider prefix for opencode (e.g. `openrouter`). Combined as `provider/model` |
 
-The markdown body becomes the bot's system prompt. Claude sees it every run.
+The markdown body becomes the bot's system prompt. The configured backend sees it every run.
+
+### Example: opencode backend via OpenRouter
+
+```markdown
+---
+name: cheap-bot
+backend: opencode
+provider: openrouter
+model: openai/gpt-oss-120b
+interval_seconds: 600
+max_turns: 5
+---
+
+You are a budget-conscious research bot...
+```
+
+The opencode backend requires the `opencode` CLI installed and authed with at least one provider (`opencode auth login`).
 
 ## How It Works
 
-Bots have four states: **running** (executing Claude API call), **sleeping** (waiting between runs), **paused** (waiting for play/message), and **stopped** (no process).
+Bots have four states: **running** (executing an agent turn), **sleeping** (waiting between runs), **paused** (waiting for play/message), and **stopped** (no process).
 
 ```
 ┌─────────────────────────────────────────┐
@@ -130,7 +152,7 @@ Bots have four states: **running** (executing Claude API call), **sleeping** (wa
 │                                         │
 │  1. Reload BOT.md config    → running   │
 │  2. Check message queue                 │
-│  3. Run Claude task (up to max_turns)   │
+│  3. Run agent task (up to max_turns)    │
 │  4. Record stats (cost, turns, session) │
 │  5. Write log file                      │
 │  6. If max_turns hit       → paused     │
@@ -153,7 +175,7 @@ Config changes (including `max_turns`) take effect on the next run without resta
 
 ### Skills
 
-Skills are directories containing a `SKILL.md` file with YAML frontmatter (`name` and `description`) and a markdown body. The harness parses frontmatter from all discovered skills and lists them by name and description in the system prompt. Claude loads full skill content on-demand via the Skill tool.
+Skills are directories containing a `SKILL.md` file with YAML frontmatter (`name` and `description`) and a markdown body. The harness parses frontmatter from all discovered skills and lists them by name and description in the system prompt. The agent loads full skill content on-demand via the Skill tool.
 
 Skills are discovered from three locations (first occurrence of a name wins):
 
