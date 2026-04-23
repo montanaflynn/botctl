@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/montanaflynn/botctl/pkg/backend"
-	sdk "github.com/montanaflynn/claude-agent-sdk-go"
+	"github.com/montanaflynn/botctl/pkg/backend/claude/sdk"
 )
 
 func init() {

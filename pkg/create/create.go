@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/montanaflynn/botctl/pkg/backend/claude/sdk"
 	"github.com/montanaflynn/botctl/pkg/paths"
-	claude "github.com/montanaflynn/claude-agent-sdk-go"
 )
 
 //go:embed create_prompt.md
@@ -103,7 +103,7 @@ func cleanup(botDir string) {
 }
 
 // formatToolUse returns a short description of a tool_use content block.
-func formatToolUse(block claude.ContentBlock) string {
+func formatToolUse(block sdk.ContentBlock) string {
 	var input map[string]any
 	if block.Input != nil {
 		_ = json.Unmarshal(block.Input, &input)
@@ -156,7 +156,7 @@ func Run(p Params, progress chan<- string) (string, error) {
 	)
 
 	var stderrLines []string
-	result, err := claude.Query(context.Background(), prompt, claude.Options{
+	result, err := sdk.Query(context.Background(), prompt, sdk.Options{
 		SystemPrompt:   createPrompt,
 		AllowedTools:   []string{"Write"},
 		Cwd:            botDir,
@@ -165,7 +165,7 @@ func Run(p Params, progress chan<- string) (string, error) {
 		Stderr: func(line string) {
 			stderrLines = append(stderrLines, line)
 		},
-	}, func(msg claude.AssistantMessage) {
+	}, func(msg sdk.AssistantMessage) {
 		for _, block := range msg.Content {
 			switch {
 			case block.IsText() && block.Text != "":
